@@ -81,3 +81,11 @@
 - [x] Add price anchoring: show monthly equivalent on annual plan
 - [x] Add "Melhor Custo-Benefício" badge on annual plan
 - [x] Update Home.tsx pricing section with same values
+
+## AI Provider & Question Database
+- [x] Replace Anthropic Claude with Gemini Flash in ai.ts router (gemini-2.5-flash)
+- [x] Add GEMINI_API_KEY to project secrets
+- [x] Generate 1,551 questions (Round 1 done); background generation continues to 5,000
+- [x] Seed 6 disciplines and 47 subjects into database
+- [x] Seed 1,551 questions into database; seed_topup.mjs ready for remaining batches
+- [x] Verified via seed output: 6 disciplines, 141 subjects, 1,551 questions in DB

@@ -1,13 +1,17 @@
 import { TRPCError } from "@trpc/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { getQuestionById } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 
-function getAnthropicClient() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI service not configured" });
-  return new Anthropic({ apiKey });
+  return new GoogleGenerativeAI(apiKey);
+}
+
+function getModel() {
+  return getGeminiClient().getGenerativeModel({ model: "gemini-2.5-flash" });
 }
 
 export const aiRouter = router({
@@ -23,14 +27,13 @@ export const aiRouter = router({
       const question = await getQuestionById(input.questionId);
       if (!question) throw new TRPCError({ code: "NOT_FOUND" });
 
-      const client = getAnthropicClient();
       const options = question.options as Array<{ id: string; textPt: string; textEn?: string }>;
       const questionText = input.language === "pt" ? question.textPt : (question.textEn || question.textPt);
       const optionsText = options.map((o) => `${o.id}) ${input.language === "pt" ? o.textPt : (o.textEn || o.textPt)}`).join("\n");
       const selectedText = options.find((o) => o.id === input.selectedOption);
       const correctText = options.find((o) => o.id === question.correctOption);
 
-      const systemPrompt = input.language === "pt"
+      const systemInstruction = input.language === "pt"
         ? "Você é um professor especialista em medicina veterinária. Explique de forma clara, didática e detalhada por que a resposta correta está certa e por que a resposta selecionada (se incorreta) está errada. Use linguagem técnica mas acessível."
         : "You are an expert veterinary medicine professor. Explain clearly and in detail why the correct answer is right and why the selected answer (if incorrect) is wrong. Use technical but accessible language.";
 
@@ -38,15 +41,13 @@ export const aiRouter = router({
         ? `Questão: ${questionText}\n\nOpções:\n${optionsText}\n\nResposta selecionada: ${input.selectedOption}) ${selectedText?.textPt}\nResposta correta: ${question.correctOption}) ${correctText?.textPt}\n\nExplique detalhadamente.`
         : `Question: ${questionText}\n\nOptions:\n${optionsText}\n\nSelected answer: ${input.selectedOption}) ${selectedText?.textEn || selectedText?.textPt}\nCorrect answer: ${question.correctOption}) ${correctText?.textEn || correctText?.textPt}\n\nExplain in detail.`;
 
-      const message = await client.messages.create({
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: userPrompt }],
-        system: systemPrompt,
+      const model = getGeminiClient().getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction,
       });
 
-      const content = message.content[0];
-      const explanation = content && content.type === "text" ? content.text : "";
+      const result = await model.generateContent(userPrompt);
+      const explanation = result.response.text();
 
       return { explanation };
     }),
@@ -64,15 +65,17 @@ export const aiRouter = router({
     .mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
 
-      const client = getAnthropicClient();
+      const model = getGeminiClient().getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: "You are an expert veterinary medicine professor creating exam questions. Always respond with valid JSON only, no markdown, no code blocks.",
+      });
 
-      const prompt = `Generate a multiple-choice veterinary medicine question about ${input.disciplineName}${input.topic ? ` specifically about ${input.topic}` : ""}. 
+      const prompt = `Generate a multiple-choice veterinary medicine question about ${input.disciplineName}${input.topic ? ` specifically about ${input.topic}` : ""}.
 Difficulty: ${input.difficulty}.
-Language: ${input.language === "pt" ? "Brazilian Portuguese" : "English"}.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format (no markdown, no code blocks):
 {
-  "textPt": "question text in Portuguese",
+  "textPt": "question text in Brazilian Portuguese",
   "textEn": "question text in English",
   "options": [
     {"id": "A", "textPt": "option A in Portuguese", "textEn": "option A in English"},
@@ -85,18 +88,14 @@ Return ONLY valid JSON in this exact format:
   "explanationEn": "detailed explanation in English"
 }`;
 
-      const message = await client.messages.create({
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 2048,
-        messages: [{ role: "user", content: prompt }],
-        system: "You are an expert veterinary medicine professor creating exam questions. Always respond with valid JSON only, no markdown.",
-      });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text().trim();
 
-      const content = message.content[0];
-      if (!content || content.type !== "text") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Strip markdown code blocks if present
+      const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
 
       try {
-        const generated = JSON.parse(content.text);
+        const generated = JSON.parse(cleaned);
         return { question: { ...generated, disciplineId: input.disciplineId, difficulty: input.difficulty } };
       } catch {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to parse AI response" });
