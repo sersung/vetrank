@@ -32,8 +32,8 @@ async function main() {
   console.log(`📊 Current DB count: ${existingCount}`);
 
   // Load existing textPt keys from DB to avoid duplicates
-  const [existingRows] = await conn.execute("SELECT LEFT(textPt, 100) as key FROM questions");
-  const existingKeys = new Set(existingRows.map(r => r.key));
+  const [existingRows] = await conn.execute("SELECT LEFT(textPt, 100) as qkey FROM questions");
+  const existingKeys = new Set(existingRows.map(r => r.qkey));
   console.log(`🔑 Loaded ${existingKeys.size} existing question keys\n`);
 
   // Build discipline and subject maps

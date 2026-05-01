@@ -74,7 +74,7 @@
 - [x] Zero TypeScript errors
 
 ## Pending
-- [ ] Deploy (user clicks Publish button in Management UI)
+- [ ] Deploy (user clicks Publish button in Management UI) — READY TO PUBLISH
 
 ## Pricing Update
 - [x] Update Pricing page: Free (30 questões/mês), Premium Mensal R$ 39,90, Premium Anual R$ 299,00 (R$ 24,90/mês equivalente, 37% desconto)
@@ -85,7 +85,7 @@
 ## AI Provider & Question Database
 - [x] Replace Anthropic Claude with Gemini Flash in ai.ts router (gemini-2.5-flash)
 - [x] Add GEMINI_API_KEY to project secrets
-- [x] Generate 1,551 questions (Round 1 done); background generation continues to 5,000
+- [x] Generated 5,766 questions via Gemini 2.5 Flash (exceeded 5,000 target)
 - [x] Seed 6 disciplines and 47 subjects into database
-- [x] Seed 1,551 questions into database; seed_topup.mjs ready for remaining batches
-- [x] Verified via seed output: 6 disciplines, 141 subjects, 1,551 questions in DB
+- [x] Seeded 5,661 questions into database (6 disciplines, 47 subjects)
+- [x] Verified per-discipline: Farmacologia 936, Clínica 1216, Herpetologia 861, Ornitologia 840, Anestesiologia 962, Pequenos Mamíferos 846
