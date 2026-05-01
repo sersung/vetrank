@@ -13,6 +13,14 @@ import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
 import AdminPanel from "./pages/AdminPanel";
 import Pricing from "./pages/Pricing";
+import Dashboard from "./pages/Dashboard";
+import PracticeMode from "./pages/PracticeMode";
+import CoordinatorPanel from "./pages/CoordinatorPanel";
+import TeacherPanel from "./pages/TeacherPanel";
+import Announcements from "./pages/Announcements";
+import TermsOfUse from "./pages/TermsOfUse";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import LGPDConsentModal from "./components/LGPDConsentModal";
 
 function Router() {
   return (
@@ -20,10 +28,17 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/bank" component={QuestionBank} />
       <Route path="/exam" component={ExamPage} />
+      <Route path="/practice" component={PracticeMode} />
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/profile" component={Profile} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/coordinator" component={CoordinatorPanel} />
+      <Route path="/teacher" component={TeacherPanel} />
+      <Route path="/announcements" component={Announcements} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/terms" component={TermsOfUse} />
+      <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -33,15 +48,27 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="dark" switchable>
         <LanguageProvider>
           <TooltipProvider>
             <Toaster />
+            <LGPDConsentModal />
             <div className="min-h-screen bg-background text-foreground flex flex-col">
               <Navbar />
               <main className="flex-1">
                 <Router />
               </main>
+              {/* Footer */}
+              <footer className="border-t border-border/40 py-6 px-4 mt-auto">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+                  <span>© 2025 VetRank. Todos os direitos reservados.</span>
+                  <div className="flex gap-4">
+                    <a href="/terms" className="hover:text-foreground transition-colors">Termos de Uso</a>
+                    <a href="/privacy" className="hover:text-foreground transition-colors">Política de Privacidade</a>
+                    <a href="/announcements" className="hover:text-foreground transition-colors">Mural</a>
+                  </div>
+                </div>
+              </footer>
             </div>
           </TooltipProvider>
         </LanguageProvider>

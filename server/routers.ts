@@ -9,6 +9,11 @@ import { leaderboardRouter } from "./routers/leaderboard";
 import { subscriptionRouter } from "./routers/subscription";
 import { adminRouter } from "./routers/admin";
 import { aiRouter } from "./routers/ai";
+import { coordinatorRouter } from "./routers/coordinator";
+import { teacherRouter } from "./routers/teacher";
+import { announcementsRouter } from "./routers/announcements";
+import { reportsRouter } from "./routers/reports";
+import { lgpdRouter, practiceRouter } from "./routers/lgpd";
 
 export const appRouter = router({
   system: systemRouter,
@@ -27,6 +32,12 @@ export const appRouter = router({
   subscription: subscriptionRouter,
   admin: adminRouter,
   ai: aiRouter,
+  coordinator: coordinatorRouter,
+  teacher: teacherRouter,
+  announcements: announcementsRouter,
+  reports: reportsRouter,
+  lgpd: lgpdRouter,
+  practice: practiceRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "teacher", "coordinator", "superuser", "admin"]).default("user").notNull(),
   // Gamification
   xp: int("xp").default(0).notNull(),
   level: int("level").default(1).notNull(),
@@ -34,6 +34,9 @@ export const users = mysqlTable("users", {
   totalExams: int("totalExams").default(0).notNull(),
   totalQuestions: int("totalQuestions").default(0).notNull(),
   totalCorrect: int("totalCorrect").default(0).notNull(),
+  // LGPD
+  lgpdConsentAt: timestamp("lgpdConsentAt"),
+  lgpdConsentVersion: varchar("lgpdConsentVersion", { length: 16 }),
   // Timestamps
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -42,6 +45,69 @@ export const users = mysqlTable("users", {
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+
+// ─── Teacher Permissions ──────────────────────────────────────────────────────
+export const teacherPermissions = mysqlTable("teacher_permissions", {
+  id: int("id").autoincrement().primaryKey(),
+  teacherId: int("teacherId").notNull(),
+  disciplineId: int("disciplineId").notNull(),
+  canCreateQuestions: boolean("canCreateQuestions").default(true).notNull(),
+  canValidateQuestions: boolean("canValidateQuestions").default(false).notNull(),
+  canCreateExams: boolean("canCreateExams").default(true).notNull(),
+  grantedBy: int("grantedBy").notNull(), // coordinator or superuser id
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TeacherPermission = typeof teacherPermissions.$inferSelect;
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+export const activityLog = mysqlTable("activity_log", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  action: varchar("action", { length: 128 }).notNull(),
+  entityType: varchar("entityType", { length: 64 }), // question, exam, user, etc.
+  entityId: int("entityId"),
+  details: json("details"),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ActivityLog = typeof activityLog.$inferSelect;
+
+// ─── Announcements ────────────────────────────────────────────────────────────
+export const announcements = mysqlTable("announcements", {
+  id: int("id").autoincrement().primaryKey(),
+  authorId: int("authorId").notNull(),
+  titlePt: varchar("titlePt", { length: 256 }).notNull(),
+  titleEn: varchar("titleEn", { length: 256 }),
+  bodyPt: text("bodyPt").notNull(),
+  bodyEn: text("bodyEn"),
+  type: mysqlEnum("type", ["info", "exam", "update", "warning"]).default("info").notNull(),
+  pinned: boolean("pinned").default(false).notNull(),
+  active: boolean("active").default(true).notNull(),
+  scheduledFor: timestamp("scheduledFor"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Announcement = typeof announcements.$inferSelect;
+
+// ─── Question Reports ─────────────────────────────────────────────────────────
+export const questionReports = mysqlTable("question_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  questionId: int("questionId").notNull(),
+  reporterId: int("reporterId").notNull(),
+  category: mysqlEnum("category", ["wrong_answer", "typo", "outdated", "unclear", "image_issue", "other"]).notNull(),
+  description: text("description"),
+  status: mysqlEnum("status", ["pending", "reviewed", "resolved", "dismissed"]).default("pending").notNull(),
+  reviewedBy: int("reviewedBy"),
+  reviewNote: text("reviewNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QuestionReport = typeof questionReports.$inferSelect;
 
 // ─── Disciplines ──────────────────────────────────────────────────────────────
 export const disciplines = mysqlTable("disciplines", {
@@ -75,16 +141,24 @@ export const questions = mysqlTable("questions", {
   id: int("id").autoincrement().primaryKey(),
   disciplineId: int("disciplineId").notNull(),
   subjectId: int("subjectId"),
+  createdBy: int("createdBy"), // teacher or admin user id
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
   year: int("year"),
+  // Question model/template
+  questionModel: mysqlEnum("questionModel", ["standard", "enade", "true_false", "assertion_reason"]).default("standard").notNull(),
   // Content (bilingual)
   textPt: text("textPt").notNull(),
   textEn: text("textEn"),
-  // Options stored as JSON array [{id, textPt, textEn}]
+  // Image URL for question body
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  // Options stored as JSON array [{id, textPt, textEn, imageUrl?}]
   options: json("options").notNull(),
   correctOption: varchar("correctOption", { length: 4 }).notNull(),
   explanationPt: text("explanationPt"),
   explanationEn: text("explanationEn"),
+  // Validation
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("approved").notNull(),
+  validatedBy: int("validatedBy"),
   // Meta
   active: boolean("active").default(true).notNull(),
   isPremium: boolean("isPremium").default(false).notNull(),
@@ -99,11 +173,15 @@ export type InsertQuestion = typeof questions.$inferInsert;
 export const exams = mysqlTable("exams", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  title: varchar("title", { length: 256 }),
   // Config
   disciplineId: int("disciplineId"),
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard", "mixed"]),
   questionCount: int("questionCount").notNull(),
   timeLimitSeconds: int("timeLimitSeconds"),
+  questionModel: mysqlEnum("questionModel", ["standard", "enade", "mixed"]).default("standard"),
+  // Subject distribution: JSON [{subjectId, percentage}]
+  subjectDistribution: json("subjectDistribution"),
   // Results
   score: int("score").default(0),
   totalQuestions: int("totalQuestions").notNull(),
@@ -111,6 +189,8 @@ export const exams = mysqlTable("exams", {
   accuracy: float("accuracy").default(0),
   xpEarned: int("xpEarned").default(0),
   timeSpentSeconds: int("timeSpentSeconds"),
+  // Per-discipline stats: JSON [{disciplineId, total, correct, accuracy}]
+  disciplineStats: json("disciplineStats"),
   status: mysqlEnum("status", ["in_progress", "completed", "abandoned"]).default("in_progress").notNull(),
   // Question IDs stored as JSON
   questionIds: json("questionIds").notNull(),
@@ -132,6 +212,21 @@ export const examAnswers = mysqlTable("exam_answers", {
 });
 
 export type ExamAnswer = typeof examAnswers.$inferSelect;
+
+// ─── Practice Sessions (non-exam question answering) ──────────────────────────
+export const practiceSessions = mysqlTable("practice_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  questionId: int("questionId").notNull(),
+  disciplineId: int("disciplineId").notNull(),
+  subjectId: int("subjectId"),
+  difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]),
+  selectedOption: varchar("selectedOption", { length: 4 }),
+  isCorrect: boolean("isCorrect").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PracticeSession = typeof practiceSessions.$inferSelect;
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 export const badges = mysqlTable("badges", {

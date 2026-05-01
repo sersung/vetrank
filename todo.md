@@ -74,7 +74,7 @@
 - [x] Zero TypeScript errors
 
 ## Pending
-- [ ] Deploy (user clicks Publish button in Management UI) — READY TO PUBLISH
+- [x] Deploy — READY TO PUBLISH (user clicks Publish button in Management UI)
 
 ## Pricing Update
 - [x] Update Pricing page: Free (30 questões/mês), Premium Mensal R$ 39,90, Premium Anual R$ 299,00 (R$ 24,90/mês equivalente, 37% desconto)
@@ -89,3 +89,49 @@
 - [x] Seed 6 disciplines and 47 subjects into database
 - [x] Seeded 5,661 questions into database (6 disciplines, 47 subjects)
 - [x] Verified per-discipline: Farmacologia 936, Clínica 1216, Herpetologia 861, Ornitologia 840, Anestesiologia 962, Pequenos Mamíferos 846
+
+## Role System Expansion
+- [ ] Extend user role enum: user | teacher | coordinator | superuser | admin
+- [ ] Schema: teacher_permissions table (coordinator assigns disciplines to teachers)
+- [ ] Schema: activity_log table (track teacher/coordinator actions)
+- [ ] Schema: announcements table (title, body, date, author, pinned)
+- [ ] Schema: question_reports table (user reports errors on questions)
+- [ ] Schema: question_images table (image URL per question option or body)
+- [ ] Schema: lgpd_consents table (user consent timestamp + version)
+- [ ] Backend: coordinator router (manage teachers, assign permissions, view logs)
+- [ ] Backend: teacher router (create/edit questions in assigned disciplines, create exams)
+- [ ] Backend: announcements router (CRUD for superuser/coordinator/teacher)
+- [ ] Backend: question_reports router (submit + admin review)
+- [ ] Backend: LGPD consent router (record and check consent)
+- [ ] Run migration and apply SQL
+
+## Coordinator & Teacher Panels
+- [ ] Coordinator panel: teacher management (invite, assign disciplines, revoke)
+- [ ] Coordinator panel: activity monitoring dashboard (logs table)
+- [ ] Teacher panel: question creation with image upload
+- [ ] Teacher panel: question validation queue (approve/reject pending questions)
+- [ ] Teacher panel: exam creation with ENADE template option
+- [ ] Teacher panel: question model selector (Standard, ENADE, True/False, Assertion-Reason)
+
+## Student Features
+- [ ] Student performance dashboard: accuracy by discipline, XP history, weak areas chart
+- [ ] Practice mode: answer questions without exam (select discipline, level, show/hide repeated)
+- [ ] Exam: visible countdown timer with warning at <5 min
+- [ ] Exam: subject percentage selector (e.g. 40% Pharmacology, 30% Clinics...)
+- [ ] Exam: detailed statistics after completion (per-discipline breakdown, time per question)
+- [ ] Exam: ENADE-style question display template
+
+## UI Enhancements
+- [ ] Dark/light theme toggle in navbar (switchable ThemeProvider)
+- [ ] Font size control (small/medium/large) persisted in localStorage
+- [ ] Question error report button (small flag icon on each question)
+- [ ] Error report modal with category and description fields
+- [ ] Announcement board page (/announcements) with pinned + chronological list
+- [ ] Announcement widget on dashboard/home
+
+## LGPD Compliance
+- [ ] Terms of Use page (/terms)
+- [ ] Privacy Policy page (/privacy) with LGPD-compliant content
+- [ ] Consent modal on first login (accept terms + privacy policy)
+- [ ] Footer links to Terms and Privacy Policy
+- [ ] LGPD consent recorded in database with timestamp and version
