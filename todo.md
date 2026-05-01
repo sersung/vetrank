@@ -75,3 +75,9 @@
 
 ## Pending
 - [ ] Deploy (user clicks Publish button in Management UI)
+
+## Pricing Update
+- [x] Update Pricing page: Free (30 questões/mês), Premium Mensal R$ 39,90, Premium Anual R$ 299,00 (R$ 24,90/mês equivalente, 37% desconto)
+- [x] Add price anchoring: show monthly equivalent on annual plan
+- [x] Add "Melhor Custo-Benefício" badge on annual plan
+- [x] Update Home.tsx pricing section with same values

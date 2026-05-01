@@ -69,17 +69,21 @@ export default function Home() {
       highlight: false,
       badge: null,
       noCard: false,
+      subtext: null,
+      discount: null,
     },
     {
-      name: t("plan_trial"),
-      price: t("plan_trial_price"),
-      period: "",
-      desc: t("plan_trial_desc"),
+      name: t("plan_monthly"),
+      price: t("plan_monthly_price"),
+      period: t("plan_per_month"),
+      desc: t("plan_monthly_desc"),
       features: t("plan_trial_features") as unknown as string[],
-      cta: t("plan_cta_trial"),
-      highlight: true,
-      badge: t("plan_popular"),
+      cta: t("plan_cta_monthly"),
+      highlight: false,
+      badge: null,
       noCard: true,
+      subtext: null,
+      discount: null,
     },
     {
       name: t("plan_premium"),
@@ -88,9 +92,11 @@ export default function Home() {
       desc: t("plan_premium_desc"),
       features: t("plan_premium_features") as unknown as string[],
       cta: t("plan_cta_premium"),
-      highlight: false,
-      badge: null,
-      noCard: false,
+      highlight: true,
+      badge: t("plan_popular"),
+      noCard: true,
+      subtext: t("plan_monthly_equiv"),
+      discount: t("plan_discount"),
     },
   ];
 
@@ -271,11 +277,19 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground font-sans">{plan.desc}</p>
                 </div>
                 <div className="mb-6">
-                  <span className="font-serif text-4xl font-bold">{plan.price}</span>
-                  {plan.period && <span className="text-muted-foreground ml-1 font-sans">{plan.period}</span>}
+                  <div className="flex items-baseline gap-1 flex-wrap">
+                    <span className={`font-serif text-4xl font-bold ${plan.highlight ? "text-primary" : ""}`}>{plan.price}</span>
+                    {plan.period && <span className="text-muted-foreground ml-1 font-sans text-sm">{plan.period}</span>}
+                    {plan.discount && (
+                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-sans text-xs ml-1">{plan.discount}</Badge>
+                    )}
+                  </div>
+                  {plan.subtext && (
+                    <p className="text-sm text-primary font-semibold font-sans mt-1">{plan.subtext}</p>
+                  )}
                   {plan.noCard && (
-                    <p className="text-xs text-primary mt-1 flex items-center gap-1 font-sans">
-                      <Check className="h-3 w-3" />
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 font-sans">
+                      <Check className="h-3 w-3 text-primary" />
                       {t("plan_no_card")}
                     </p>
                   )}
