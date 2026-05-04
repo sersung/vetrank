@@ -211,32 +211,32 @@
 ## All Question Formats (May 2026)
 
 ### Schema & DB
-- [ ] Extend questionType enum: multiple_choice | assertion_reason | complex_multiple_choice | matching | true_false | ordering | cloze | clinical_case | image_analysis | interpretation
-- [ ] Add formatData JSON column to questions table (stores format-specific structured data)
-- [ ] Run migration and apply SQL
+- [x] Extend questionType enum: multiple_choice | assertion_reason | complex_multiple_choice | matching | true_false | ordering | cloze | clinical_case | image_analysis | interpretation | discursive
+- [x] Add formatData JSON column to questions table (stores format-specific structured data)
+- [x] Run migration and apply SQL
 
 ### Backend
-- [ ] Update questions router create/update to accept formatData for each type
-- [ ] Add type-specific validation per questionType
-- [ ] Update list/getById to return formatData
+- [x] Update questions router create/update to accept formatData for each type
+- [x] Add type-specific validation per questionType
+- [x] Update list/getById to return formatData
 
 ### Admin Panel
-- [ ] Assertion-Reason form: propositions I and II with PORQUE connector, fixed 5 options (1-5 ENADE standard)
-- [ ] Complex Multiple Choice form: items I/II/III/IV editor + combination options builder
-- [ ] Matching (Association) form: Column A items + Column B items editor
-- [ ] True/False Sequential form: list of statements, alternativas with V/F sequences
-- [ ] Ordering/Sequencing form: list of steps to be ordered
-- [ ] Cloze (Fill-in-the-blank) form: text with [BLANK] markers + answer options
-- [ ] Clinical Case / Image Analysis form: case text + image URL + standard 5 options
+- [x] Assertion-Reason form: propositions I and II with PORQUE connector, fixed 5 options (1-5 ENADE standard)
+- [x] Complex Multiple Choice form: items I/II/III/IV editor + combination options builder
+- [x] Matching (Association) form: Column A items + Column B items editor
+- [x] True/False Sequential form: list of statements, alternativas with V/F sequences
+- [x] Ordering/Sequencing form: list of steps to be ordered
+- [x] Cloze (Fill-in-the-blank) form: text with [BLANK] markers + answer options
+- [x] Clinical Case / Image Analysis form: case text + image URL + standard 5 options
 
 ### Student Renderer
-- [ ] Render assertion_reason: show propositions I and II with PORQUE, fixed 5 options
-- [ ] Render complex_multiple_choice: show items I/II/III + combination options
-- [ ] Render matching: two-column layout with drag/select matching
-- [ ] Render true_false: list of statements with V/F sequence options
-- [ ] Render ordering: numbered list with reorder UI or option selection
-- [ ] Render cloze: text with blanks highlighted + fill options
-- [ ] Render clinical_case / image_analysis: case text + optional image + options
+- [x] Render assertion_reason: show propositions I and II with PORQUE, fixed 5 options
+- [x] Render complex_multiple_choice: show items I/II/III + combination options
+- [x] Render matching: two-column layout with drag/select matching
+- [x] Render true_false: list of statements with V/F sequence options
+- [x] Render ordering: numbered list with reorder UI or option selection
+- [x] Render cloze: text with blanks highlighted + fill options
+- [x] Render clinical_case / image_analysis: case text + optional image + options
 
 ## Simulado Filters (May 2026)
 - [x] Add author, year, subjectId, disciplineIds (multi) filters to exam question query backend
@@ -247,3 +247,12 @@
 - [x] Update ExamPage config UI: author dropdown (from distinct authors in DB)
 - [x] Update ExamPage config UI: year dropdown (from distinct years in DB)
 - [x] Ensure filters are combined correctly (AND logic) when fetching exam questions
+
+## Question Fixes & Generation (May 2026)
+- [x] Diagnose broken questions: root cause was options stored with label instead of id field
+- [x] Fix 1030 questions: migrate options label→id in DB
+- [x] Add defensive label→id normalization in QuestionRenderer frontend
+- [x] Generate new questions for all 45 subjects via LLM (parallel)
+- [x] Insert 226 new questions across all 45 subjects
+- [x] Verify all subjects have questions (0 subjects with 0 questions)
+- [x] Total: 5887 active questions

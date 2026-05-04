@@ -64,6 +64,14 @@ export default function QuestionRenderer({
   const fd = question.formatData || {};
   const lang = language;
 
+  // Defensive normalization: DB may store options as {label, textPt} instead of {id, textPt}
+  const normalizedOptions: QuestionOption[] = (question.options || []).map((opt: any) => ({
+    id: opt.id ?? opt.label ?? String(opt),
+    textPt: opt.textPt ?? opt.text_pt ?? "",
+    textEn: opt.textEn ?? opt.text_en,
+  }));
+  const opts = normalizedOptions;
+
   const isCorrect = (optId: string) => optId === question.correctOption;
   const isSelected = (optId: string) => optId === selectedOption;
 
@@ -283,9 +291,9 @@ export default function QuestionRenderer({
       )}
 
       {/* ── Options (for all types with selectable alternatives) ── */}
-      {qType !== "discursive" && question.options.length > 0 && (
+      {qType !== "discursive" && opts.length > 0 && (
         <div className="space-y-2">
-          {question.options.map((opt) => (
+          {opts.map((opt) => (
             <button
               key={opt.id}
               className={optionClass(opt.id)}
