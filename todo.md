@@ -329,3 +329,76 @@
 - [ ] TrailDetail.tsx: animated progress bar across all modules
 - [ ] TrailDetail.tsx: level/XP sidebar widget showing current level and XP to next
 - [ ] TrailDetail.tsx: completion celebration banner when trail is finished
+
+## Bulk Import & Question Validation System (May 2026)
+
+### Schema & DB
+- [ ] Add isValidated (boolean, default false), validatedBy (userId), validatedAt (timestamp) to questions table
+- [ ] Add isValidated, validatedBy, validatedAt to discursive_questions table
+- [ ] Add question_assignments table: id, assignedTo, assignedBy, questionId, questionType, status, notes, createdAt, updatedAt
+- [ ] Generate and apply migration
+
+### Backend
+- [ ] Add validateQuestion procedure (coordinator/professor only)
+- [ ] Add getValidationStats procedure for coordinator
+- [ ] Add assignment CRUD (create by coordinator, list by professor, update status)
+- [ ] Add bulk import parse endpoint (CSV/XLSX/JSON → preview rows)
+- [ ] Add bulk import confirm endpoint (insert rows into DB)
+
+### QuestionImport Component
+- [ ] Create QuestionImportModal.tsx with file drop zone (CSV/XLSX/JSON)
+- [ ] Client-side parsing with preview table (first 20 rows, errors highlighted)
+- [ ] Download template buttons: CSV (multiple choice), CSV (discursive), XLSX, JSON
+- [ ] Confirm import button
+
+### Coordinator Panel
+- [ ] Add "Importar Questões" tab with QuestionImportModal
+- [ ] Add "Validação" tab: all questions with isValidated badge, filter by discipline/status
+- [ ] Add "Atribuições" tab: assign question batches to professors
+- [ ] Add monitoring dashboard: stats by professor
+
+### Professor Panel
+- [ ] Add "Importar Questões" tab with QuestionImportModal
+- [ ] Add "Minhas Atribuições" tab: list assigned questions, approve/reject with notes
+- [ ] Show validation badge on question cards in professor view
+
+## Validation & Import System (May 2026)
+
+### DB Schema
+- [x] Add isValidated (boolean, default false) to questions table
+- [x] Add validatedBy (int, nullable) to questions table
+- [x] Add validatedAt (bigint, nullable) to questions table
+- [x] Add isValidated, validatedBy, validatedAt to discursive_questions table
+- [x] Create question_assignments table (id, questionId, questionType, assignedTo, assignedBy, status, notes, createdAt, updatedAt)
+- [x] Apply migration 0006
+
+### Backend
+- [x] validation.ts router: validateQuestion, getValidationStats, listForValidation, createAssignment, listMyAssignments, updateAssignment, listAllAssignments, listProfessors
+- [x] Register validationRouter in routers.ts
+- [x] Install xlsx package (server-side)
+
+### QuestionImport Component
+- [x] QuestionImport.tsx: CSV/XLSX/JSON parsing with Papa Parse and xlsx
+- [x] Pre-visualization table with per-row validation errors
+- [x] Template download buttons (CSV and XLSX) for both multiple_choice and discursive formats
+- [x] Import type selector (multiple_choice / discursive)
+- [x] Drag-and-drop + click-to-select file upload zone
+- [x] Calls trpc.questions.bulkImport on confirmation
+
+### Coordinator Panel (AdminPanel.tsx)
+- [x] Add "Importar" tab with QuestionImport component
+- [x] Add "Validação" tab with:
+  - [x] Stats cards (total MC, validated, pending, active professors)
+  - [x] Assign questions to professor (professor selector, discipline filter, checkbox list, assign button)
+  - [x] Assignment monitoring table with status filter (all/pending/approved/rejected)
+  - [x] Per-professor performance breakdown
+
+### Professor Panel (TeacherPanel.tsx)
+- [x] "Minhas Atribuições" tab: list assignments with approve/reject actions, notes field, question detail expand
+- [x] "Importar Questões" tab with QuestionImport component
+- [x] "Minhas Questões" tab with isValidated badge
+
+### Rate Limiter Fix
+- [x] Add ipKeyGenerator to apiLimiter (was missing, causing IPv6 warning)
+- [x] Confirm trust proxy is set before rate limiter initialization
+- [x] Verify no ValidationError warnings after server restart

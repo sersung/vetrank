@@ -21,6 +21,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down." },
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
 });
 
 /** Strict question-scraping limiter: 60 req / 1 min per IP */

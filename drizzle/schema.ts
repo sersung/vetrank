@@ -189,7 +189,9 @@ export const questions = mysqlTable("questions", {
   assertion2: text("assertion2"),
   // Validation
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("approved").notNull(),
+  isValidated: boolean("isValidated").default(false).notNull(),
   validatedBy: int("validatedBy"),
+  validatedAt: timestamp("validatedAt"),
   // Meta
   active: boolean("active").default(true).notNull(),
   isPremium: boolean("isPremium").default(false).notNull(),
@@ -327,6 +329,9 @@ export const discursiveQuestions = mysqlTable("discursive_questions", {
   textEn: text("textEn"),
   expectedAnswerPt: text("expectedAnswerPt").notNull(),
   expectedAnswerEn: text("expectedAnswerEn"),
+  isValidated: boolean("isValidated").default(false).notNull(),
+  validatedBy: int("validatedBy"),
+  validatedAt: timestamp("validatedAt"),
   active: boolean("active").default(true).notNull(),
   isPremium: boolean("isPremium").default(true).notNull(),
   createdBy: int("createdBy"),
@@ -467,3 +472,19 @@ export const referralBonuses = mysqlTable("referral_bonuses", {
 });
 
 export type ReferralBonus = typeof referralBonuses.$inferSelect;
+
+// ─── Question Assignments (coordinator assigns questions to professors for validation) ─
+export const questionAssignments = mysqlTable("question_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  assignedBy: int("assignedBy").notNull(),   // coordinator/superuser id
+  assignedTo: int("assignedTo").notNull(),   // teacher/professor id
+  questionId: int("questionId").notNull(),
+  questionType: mysqlEnum("questionType", ["multiple_choice", "discursive"]).default("multiple_choice").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  notes: text("notes"),                      // professor feedback notes
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QuestionAssignment = typeof questionAssignments.$inferSelect;
+export type InsertQuestionAssignment = typeof questionAssignments.$inferInsert;

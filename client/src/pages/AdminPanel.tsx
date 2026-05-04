@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { QuestionImport } from "@/components/QuestionImport";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ import {
   BookOpen,
   Brain,
   Calendar,
+  CheckCircle,
+  ClipboardList,
   Crown,
   Database,
   Edit,
@@ -36,6 +39,7 @@ import {
   Upload,
   UserCheck,
   Users,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -100,6 +104,50 @@ export default function AdminPanel() {
   const [isDragOver, setIsDragOver] = useState(false);
   const bulkJsonRef = useRef<HTMLInputElement>(null);
   const bulkImport = trpc.questions.bulkImport.useMutation();
+
+  // Validation state
+  const [validationFilter, setValidationFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [assignProfessorId, setAssignProfessorId] = useState<string>("");
+  const [assignDisciplineId, setAssignDisciplineId] = useState<string>("");
+  const [selectedForAssignment, setSelectedForAssignment] = useState<number[]>([]);
+  const isAdmin = user?.role === "admin";
+  const { data: validationStats, refetch: refetchValidationStats } = trpc.validation.getValidationStats.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  );
+  const { data: professors } = trpc.validation.listProfessors.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  );
+  const { data: questionsForValidation, refetch: refetchValidationList } = trpc.validation.listForValidation.useQuery(
+    { questionType: "multiple_choice", disciplineId: assignDisciplineId ? Number(assignDisciplineId) : undefined, isValidated: false, page: 1, pageSize: 50 },
+    { enabled: isAdmin }
+  );
+  const { data: allAssignments, refetch: refetchAllAssignments } = trpc.validation.listAllAssignments.useQuery(
+    { status: validationFilter === "all" ? "all" : validationFilter, page: 1, pageSize: 30 },
+    { enabled: isAdmin }
+  );
+  const createAssignment = trpc.validation.createAssignment.useMutation();
+  const validateQuestion = trpc.validation.validateQuestion.useMutation();
+
+  const handleCreateAssignment = async () => {
+    if (!assignProfessorId || selectedForAssignment.length === 0) {
+      toast.error("Selecione um professor e ao menos uma questão");
+      return;
+    }
+    try {
+      const result = await createAssignment.mutateAsync({
+        assignedTo: Number(assignProfessorId),
+        questionIds: selectedForAssignment,
+        questionType: "multiple_choice",
+      });
+      toast.success(`${result.count} questão(ões) atribuída(s) com sucesso`);
+      setSelectedForAssignment([]);
+      await refetchAllAssignments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const seedMutation = trpc.admin.seed.useMutation();
   const createDiscipline = trpc.admin.createDiscipline.useMutation();
@@ -511,6 +559,14 @@ export default function AdminPanel() {
             <TabsTrigger value="emails" className="font-sans gap-1">
               <Mail className="h-3.5 w-3.5" />
               {language === "pt" ? "Emails" : "Emails"}
+            </TabsTrigger>
+            <TabsTrigger value="importar" className="font-sans gap-1">
+              <FileJson className="h-3.5 w-3.5" />
+              Importar
+            </TabsTrigger>
+            <TabsTrigger value="validacao" className="font-sans gap-1">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Validação
             </TabsTrigger>
           </TabsList>
 
@@ -1017,6 +1073,170 @@ export default function AdminPanel() {
               </div>
             </div>
           </TabsContent>
+          {/* Importar tab */}
+          <TabsContent value="importar">
+            <div className="mb-4">
+              <h2 className="font-serif text-xl font-bold mb-1">Importar Questões</h2>
+              <p className="text-sm text-muted-foreground font-sans">Importe questões em lote via CSV, XLSX ou JSON. Pré-visualize antes de confirmar.</p>
+            </div>
+            <QuestionImport onImportComplete={(count) => { toast.success(`${count} questões importadas`); refetchQuestions(); }} />
+          </TabsContent>
+
+          {/* Validação tab */}
+          <TabsContent value="validacao">
+            <div className="space-y-6">
+              {/* Stats cards */}
+              {validationStats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-card border border-border/50 rounded-xl p-4 text-center">
+                    <div className="font-serif text-2xl font-bold text-primary">{validationStats.multipleChoice.total}</div>
+                    <div className="text-xs text-muted-foreground font-sans mt-0.5">Total MC</div>
+                  </div>
+                  <div className="bg-card border border-border/50 rounded-xl p-4 text-center">
+                    <div className="font-serif text-2xl font-bold text-green-400">{validationStats.multipleChoice.validated}</div>
+                    <div className="text-xs text-muted-foreground font-sans mt-0.5">Validadas</div>
+                  </div>
+                  <div className="bg-card border border-border/50 rounded-xl p-4 text-center">
+                    <div className="font-serif text-2xl font-bold text-yellow-400">{validationStats.multipleChoice.pending}</div>
+                    <div className="text-xs text-muted-foreground font-sans mt-0.5">Pendentes</div>
+                  </div>
+                  <div className="bg-card border border-border/50 rounded-xl p-4 text-center">
+                    <div className="font-serif text-2xl font-bold text-cyan-400">{validationStats.byProfessor.length}</div>
+                    <div className="text-xs text-muted-foreground font-sans mt-0.5">Professores ativos</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Assign questions to professor */}
+              <div className="bg-card border border-border/50 rounded-xl p-5">
+                <h3 className="font-serif text-lg font-bold mb-4">Atribuir Questões para Validação</h3>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <Select value={assignProfessorId} onValueChange={setAssignProfessorId}>
+                    <SelectTrigger className="w-52 font-sans">
+                      <SelectValue placeholder="Selecionar professor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {professors?.map(p => (
+                        <SelectItem key={p.id} value={String(p.id)}>{p.name ?? p.email}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={assignDisciplineId} onValueChange={setAssignDisciplineId}>
+                    <SelectTrigger className="w-52 font-sans">
+                      <SelectValue placeholder="Filtrar por disciplina" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todas as disciplinas</SelectItem>
+                      {disciplines?.map(d => (
+                        <SelectItem key={d.id} value={String(d.id)}>{d.namePt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateAssignment}
+                    disabled={createAssignment.isPending || selectedForAssignment.length === 0 || !assignProfessorId}
+                    className="bg-primary text-primary-foreground font-sans"
+                  >
+                    {createAssignment.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserCheck className="h-4 w-4 mr-1" />}
+                    Atribuir {selectedForAssignment.length > 0 ? `(${selectedForAssignment.length})` : ""}
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {questionsForValidation?.rows.map(q => (
+                    <label key={q.id} className="flex items-start gap-3 p-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:border-primary/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 accent-primary"
+                        checked={selectedForAssignment.includes(q.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedForAssignment(prev => [...prev, q.id]);
+                          else setSelectedForAssignment(prev => prev.filter(id => id !== q.id));
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-sans line-clamp-1">{q.textPt}</p>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{q.difficulty}</Badge>
+                          <Badge className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">Pendente</Badge>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                  {questionsForValidation?.rows.length === 0 && (
+                    <p className="text-sm text-muted-foreground font-sans text-center py-4">Nenhuma questão pendente de validação</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Assignments monitoring */}
+              <div className="bg-card border border-border/50 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-serif text-lg font-bold">Monitoramento de Atribuições</h3>
+                  <div className="flex gap-2">
+                    {(["all", "pending", "approved", "rejected"] as const).map(s => (
+                      <Button
+                        key={s}
+                        size="sm"
+                        variant={validationFilter === s ? "default" : "outline"}
+                        className="font-sans text-xs"
+                        onClick={() => setValidationFilter(s)}
+                      >
+                        {s === "all" ? "Todos" : s === "pending" ? "Pendentes" : s === "approved" ? "Aprovados" : "Rejeitados"}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {allAssignments?.rows.map((a: any) => (
+                    <div key={a.id} className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground font-sans">Questão #{a.questionId} → Professor #{a.assignedTo}</p>
+                        {a.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">{a.notes}</p>}
+                      </div>
+                      <Badge className={`text-xs font-sans ${
+                        a.status === "approved" ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                        a.status === "rejected" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                        "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                      }`}>
+                        {a.status === "approved" ? <CheckCircle className="h-3 w-3 mr-1" /> : a.status === "rejected" ? <XCircle className="h-3 w-3 mr-1" /> : null}
+                        {a.status === "approved" ? "Aprovado" : a.status === "rejected" ? "Rejeitado" : "Pendente"}
+                      </Badge>
+                    </div>
+                  ))}
+                  {allAssignments?.rows.length === 0 && (
+                    <p className="text-sm text-muted-foreground font-sans text-center py-4">Nenhuma atribuição encontrada</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Per-professor stats */}
+              {validationStats?.byProfessor && validationStats.byProfessor.length > 0 && (
+                <div className="bg-card border border-border/50 rounded-xl p-5">
+                  <h3 className="font-serif text-lg font-bold mb-4">Desempenho por Professor</h3>
+                  <div className="space-y-3">
+                    {validationStats.byProfessor.map(p => (
+                      <div key={p.professorId} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border/50">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium font-sans">{p.professorName}</p>
+                          <div className="flex gap-3 mt-1 text-xs text-muted-foreground font-sans">
+                            <span className="text-green-400">{p.approved} aprovadas</span>
+                            <span className="text-red-400">{p.rejected} rejeitadas</span>
+                            <span className="text-yellow-400">{p.pending} pendentes</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-serif text-lg font-bold">{p.total}</div>
+                          <div className="text-xs text-muted-foreground">total</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
         </Tabs>
       </div>
 
