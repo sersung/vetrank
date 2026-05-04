@@ -72,12 +72,22 @@ export default function ExamPage() {
   const [loadingAi, setLoadingAi] = useState<Record<number, boolean>>({});
 
   // Config
-  const [disciplineId, setDisciplineId] = useState<string>("");
+  const [disciplineIds, setDisciplineIds] = useState<number[]>([]);
+  const [subjectId, setSubjectId] = useState<string>("");
+  const [author, setAuthor] = useState<string>("");
+  const [year, setYear] = useState<string>("");
   const [difficulty, setDifficulty] = useState<string>("mixed");
   const [questionCount, setQuestionCount] = useState(20);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null);
 
   const { data: disciplines } = trpc.questions.disciplines.useQuery();
+  const { data: distinctAuthors } = trpc.questions.distinctAuthors.useQuery();
+  const { data: distinctYears } = trpc.questions.distinctYears.useQuery();
+  // Load subjects for all selected disciplines
+  const { data: allSubjects } = trpc.questions.allSubjects.useQuery();
+  const filteredSubjects = allSubjects?.filter((s) =>
+    disciplineIds.length === 0 || disciplineIds.includes(s.disciplineId)
+  );
   const startExam = trpc.exams.start.useMutation();
   const submitAnswer = trpc.exams.submitAnswer.useMutation();
   const completeExam = trpc.exams.complete.useMutation();
@@ -115,7 +125,10 @@ export default function ExamPage() {
     }
     try {
       const result = await startExam.mutateAsync({
-        disciplineId: disciplineId && disciplineId !== "all" ? parseInt(disciplineId) : undefined,
+        disciplineIds: disciplineIds.length > 0 ? disciplineIds : undefined,
+        subjectId: subjectId && subjectId !== "all" ? parseInt(subjectId) : undefined,
+        author: author && author !== "all" ? author : undefined,
+        year: year && year !== "all" ? parseInt(year) : undefined,
         difficulty: difficulty as "easy" | "medium" | "hard" | "mixed",
         questionCount,
         timeLimitMinutes: timeLimitMinutes ?? undefined,
@@ -206,19 +219,106 @@ export default function ExamPage() {
           </div>
 
           <div className="bg-card border border-border/50 rounded-2xl p-8 space-y-6">
-            {/* Discipline */}
+            {/* Disciplines — multi-select checkboxes */}
             <div>
-              <label className="text-sm font-medium font-sans mb-2 block">{t("exam_discipline")}</label>
-              <Select value={disciplineId || "all"} onValueChange={(v) => setDisciplineId(v === "all" ? "" : v)}>
+              <label className="text-sm font-medium font-sans mb-3 block">
+                {language === "pt" ? "Disciplinas" : "Disciplines"}
+                {disciplineIds.length > 0 && (
+                  <span className="ml-2 text-xs text-primary font-normal">
+                    ({disciplineIds.length} {language === "pt" ? "selecionada(s)" : "selected"})
+                  </span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {disciplines?.map((d) => {
+                  const checked = disciplineIds.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => {
+                        setDisciplineIds((prev) =>
+                          checked ? prev.filter((id) => id !== d.id) : [...prev, d.id]
+                        );
+                        setSubjectId("");
+                      }}
+                      className={`text-left px-3 py-2 rounded-lg border text-xs font-sans transition-all ${
+                        checked
+                          ? "bg-primary/20 border-primary/50 text-primary font-medium"
+                          : "bg-background border-border/50 text-muted-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      {language === "pt" ? d.namePt : d.nameEn}
+                    </button>
+                  );
+                })}
+              </div>
+              {disciplineIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setDisciplineIds([]); setSubjectId(""); }}
+                  className="mt-2 text-xs text-muted-foreground hover:text-foreground font-sans underline"
+                >
+                  {language === "pt" ? "Limpar seleção" : "Clear selection"}
+                </button>
+              )}
+            </div>
+
+            {/* Subject — filtered by selected disciplines */}
+            <div>
+              <label className="text-sm font-medium font-sans mb-2 block">
+                {language === "pt" ? "Assunto" : "Subject"}
+              </label>
+              <Select
+                value={subjectId || "all"}
+                onValueChange={(v) => setSubjectId(v === "all" ? "" : v)}
+                disabled={!filteredSubjects || filteredSubjects.length === 0}
+              >
                 <SelectTrigger className="bg-background border-border/50 font-sans">
-                  <SelectValue placeholder={t("exam_all_disciplines")} />
+                  <SelectValue placeholder={language === "pt" ? "Todos os assuntos" : "All subjects"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t("exam_all_disciplines")}</SelectItem>
-                  {disciplines?.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {language === "pt" ? d.namePt : d.nameEn}
+                  <SelectItem value="all">{language === "pt" ? "Todos os assuntos" : "All subjects"}</SelectItem>
+                  {filteredSubjects?.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {language === "pt" ? s.namePt : s.nameEn}
                     </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Author */}
+            <div>
+              <label className="text-sm font-medium font-sans mb-2 block">
+                {language === "pt" ? "Autor" : "Author"}
+              </label>
+              <Select value={author || "all"} onValueChange={(v) => setAuthor(v === "all" ? "" : v)}>
+                <SelectTrigger className="bg-background border-border/50 font-sans">
+                  <SelectValue placeholder={language === "pt" ? "Todos os autores" : "All authors"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "pt" ? "Todos os autores" : "All authors"}</SelectItem>
+                  {distinctAuthors?.map((a) => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Year */}
+            <div>
+              <label className="text-sm font-medium font-sans mb-2 block">
+                {language === "pt" ? "Ano" : "Year"}
+              </label>
+              <Select value={year || "all"} onValueChange={(v) => setYear(v === "all" ? "" : v)}>
+                <SelectTrigger className="bg-background border-border/50 font-sans">
+                  <SelectValue placeholder={language === "pt" ? "Todos os anos" : "All years"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "pt" ? "Todos os anos" : "All years"}</SelectItem>
+                  {distinctYears?.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

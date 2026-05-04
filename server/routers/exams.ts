@@ -18,6 +18,10 @@ export const examsRouter = router({
     .input(
       z.object({
         disciplineId: z.number().optional(),
+        disciplineIds: z.array(z.number()).optional(),
+        subjectId: z.number().optional(),
+        author: z.string().optional(),
+        year: z.number().optional(),
         difficulty: z.enum(["easy", "medium", "hard", "mixed"]).default("mixed"),
         questionCount: z.number().min(5).max(100).default(20),
         timeLimitMinutes: z.number().min(5).max(180).optional(),
@@ -26,11 +30,16 @@ export const examsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const questions = await getRandomQuestions({
         disciplineId: input.disciplineId,
+        disciplineIds: input.disciplineIds,
+        subjectId: input.subjectId,
+        author: input.author,
+        year: input.year,
         difficulty: input.difficulty,
         count: input.questionCount,
       });
 
-      if (questions.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No questions found for the selected filters" });
+      if (questions.length === 0)
+        throw new TRPCError({ code: "NOT_FOUND", message: "No questions found for the selected filters" });
 
       const timeLimitSeconds = input.timeLimitMinutes ? input.timeLimitMinutes * 60 : undefined;
       const examId = await createExam({

@@ -6,6 +6,8 @@ import {
   getAllDisciplines,
   getAllSubjects,
   getDisciplines,
+  getDistinctAuthors,
+  getDistinctYears,
   getQuestionById,
   getQuestions,
   getSubjectsByDiscipline,
@@ -66,6 +68,8 @@ export const questionsRouter = router({
     .input(z.object({ disciplineId: z.number() }))
     .query(({ input }) => getSubjectsByDiscipline(input.disciplineId)),
   allSubjects: publicProcedure.query(() => getAllSubjects()),
+  distinctAuthors: publicProcedure.query(() => getDistinctAuthors()),
+  distinctYears: publicProcedure.query(() => getDistinctYears()),
 
   // Admin procedures
   create: protectedProcedure

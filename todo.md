@@ -237,3 +237,13 @@
 - [ ] Render ordering: numbered list with reorder UI or option selection
 - [ ] Render cloze: text with blanks highlighted + fill options
 - [ ] Render clinical_case / image_analysis: case text + optional image + options
+
+## Simulado Filters (May 2026)
+- [x] Add author, year, subjectId, disciplineIds (multi) filters to exam question query backend
+- [x] Add distinct author list query to questions router
+- [x] Add distinct year list query to questions router
+- [x] Update ExamPage config UI: multi-select disciplines (checkboxes or tags)
+- [x] Update ExamPage config UI: subject dropdown (dependent on selected disciplines)
+- [x] Update ExamPage config UI: author dropdown (from distinct authors in DB)
+- [x] Update ExamPage config UI: year dropdown (from distinct years in DB)
+- [x] Ensure filters are combined correctly (AND logic) when fetching exam questions

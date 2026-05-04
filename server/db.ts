@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   Badge,
@@ -329,6 +329,10 @@ export async function getQuestionById(id: number): Promise<Question | undefined>
 
 export async function getRandomQuestions(filters: {
   disciplineId?: number;
+  disciplineIds?: number[];
+  subjectId?: number;
+  author?: string;
+  year?: number;
   difficulty?: string;
   count: number;
   excludeIds?: number[];
@@ -337,12 +341,19 @@ export async function getRandomQuestions(filters: {
   if (!db) return [];
 
   const conditions = [eq(questions.active, true)];
-  if (filters.disciplineId) conditions.push(eq(questions.disciplineId, filters.disciplineId));
+
+  // Single discipline (legacy) or multi-discipline
+  if (filters.disciplineIds && filters.disciplineIds.length > 0) {
+    conditions.push(inArray(questions.disciplineId, filters.disciplineIds));
+  } else if (filters.disciplineId) {
+    conditions.push(eq(questions.disciplineId, filters.disciplineId));
+  }
+
+  if (filters.subjectId) conditions.push(eq(questions.subjectId, filters.subjectId));
+  if (filters.author) conditions.push(eq(questions.author, filters.author));
+  if (filters.year) conditions.push(eq(questions.year, filters.year));
   if (filters.difficulty && filters.difficulty !== "mixed")
     conditions.push(eq(questions.difficulty, filters.difficulty as "easy" | "medium" | "hard"));
-  if (filters.excludeIds?.length) {
-    // Simple approach: get more and filter
-  }
 
   const rows = await db
     .select()
@@ -352,6 +363,28 @@ export async function getRandomQuestions(filters: {
     .limit(filters.count);
 
   return rows;
+}
+
+export async function getDistinctAuthors(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .selectDistinct({ author: questions.author })
+    .from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.author)))
+    .orderBy(questions.author);
+  return rows.map((r) => r.author!).filter(Boolean);
+}
+
+export async function getDistinctYears(): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .selectDistinct({ year: questions.year })
+    .from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.year)))
+    .orderBy(desc(questions.year));
+  return rows.map((r) => r.year!).filter(Boolean);
 }
 
 export async function createQuestion(data: InsertQuestion): Promise<number> {
