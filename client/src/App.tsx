@@ -21,6 +21,8 @@ import Announcements from "./pages/Announcements";
 import TermsOfUse from "./pages/TermsOfUse";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import LGPDConsentModal from "./components/LGPDConsentModal";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailure from "./pages/PaymentFailure";
 
 function Router() {
   return (
@@ -39,6 +41,9 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/terms" component={TermsOfUse} />
       <Route path="/privacy" component={PrivacyPolicy} />
+      <Route path="/payment/success" component={PaymentSuccess} />
+      <Route path="/payment/failure" component={PaymentFailure} />
+      <Route path="/payment/pending" component={PaymentFailure} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

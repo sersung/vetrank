@@ -135,3 +135,13 @@
 - [ ] Consent modal on first login (accept terms + privacy policy)
 - [ ] Footer links to Terms and Privacy Policy
 - [ ] LGPD consent recorded in database with timestamp and version
+
+## Mercado Pago Integration
+- [ ] Add MP_ACCESS_TOKEN and MP_WEBHOOK_SECRET to project secrets
+- [ ] Install mercadopago SDK
+- [ ] Backend: createPreference procedure (monthly R$39,90 + annual R$299,00)
+- [ ] Backend: webhook handler at /api/mp/webhook for payment confirmation
+- [ ] Backend: activate subscription on approved payment
+- [ ] Frontend: checkout button on Pricing page
+- [ ] Frontend: success and failure/pending pages
+- [ ] Frontend: subscription status and cancel UI in Profile page
