@@ -21,6 +21,13 @@ import {
 import { Link } from "wouter";
 
 const DISCIPLINE_ICONS: Record<string, string> = {
+  "ciencias-biologicas": "🔬",
+  "patobiologia": "🦠",
+  "clinica-cirurgia": "🏥",
+  "medicina-preventiva": "🛡️",
+  "zootecnia": "🐄",
+  "etica-humanidades": "⚖️",
+  // legacy fallbacks
   pharmacology: "💊",
   clinics: "🩺",
   herpetology: "🦎",
@@ -38,7 +45,7 @@ export default function Home() {
   const { data: disciplines } = trpc.questions.disciplines.useQuery();
 
   const stats = [
-    { label: t("stats_questions"), value: "500+", icon: BookOpen },
+    { label: t("stats_questions"), value: "5.661", icon: BookOpen },
     { label: t("stats_students"), value: "2K+", icon: Users },
     { label: t("stats_exams"), value: "10K+", icon: FlaskConical },
     { label: t("stats_accuracy"), value: "78%", icon: Star },
