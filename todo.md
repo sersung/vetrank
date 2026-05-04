@@ -318,3 +318,14 @@
 - [ ] Seed Fisiologia Geral trail (combines Fisio I + II, 11 modules total)
 - [ ] Seed Patologia Geral trail (9 modules from document)
 - [ ] Seed Patologia Especial trail (5 modules from document)
+
+## Gamification Visuals - Trails (May 2026)
+- [ ] Trails.tsx: XP/level hero banner with animated progress bar to next level
+- [ ] Trails.tsx: trail cards with circular progress ring showing % modules completed
+- [ ] Trails.tsx: XP reward badge on each trail card (total XP earnable)
+- [ ] Trails.tsx: streak/status badges (Em andamento, Concluído, Bloqueado)
+- [ ] TrailDetail.tsx: module timeline with lock/unlock visual states
+- [ ] TrailDetail.tsx: XP gain indicator per module (e.g. +150 XP)
+- [ ] TrailDetail.tsx: animated progress bar across all modules
+- [ ] TrailDetail.tsx: level/XP sidebar widget showing current level and XP to next
+- [ ] TrailDetail.tsx: completion celebration banner when trail is finished
