@@ -102,7 +102,7 @@ export default function DiscursiveBank() {
 
   const handleSave = async () => {
     if (!form.textPt || !form.disciplineId || !form.expectedAnswerPt) {
-      toast.error(language === "pt" ? "Preencha os campos obrigatórios (enunciado, disciplina, resposta esperada)" : "Fill required fields");
+      toast.error(language === "pt" ? "Preencha os campos obrigatórios (enunciado, grande área, resposta esperada)" : "Fill required fields");
       return;
     }
     try {
@@ -187,7 +187,7 @@ export default function DiscursiveBank() {
           </div>
           <Select value={disciplineFilter ? String(disciplineFilter) : "all"} onValueChange={(v) => { setDisciplineFilter(v === "all" ? undefined : parseInt(v)); setPage(1); }}>
             <SelectTrigger className="w-44 bg-background border-border/50 font-sans">
-              <SelectValue placeholder={language === "pt" ? "Disciplina" : "Discipline"} />
+              <SelectValue placeholder={language === "pt" ? "Grande Área" : "Major Area"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{language === "pt" ? "Todas" : "All"}</SelectItem>
@@ -359,7 +359,7 @@ export default function DiscursiveBank() {
             <div className="grid grid-cols-2 gap-3">
               <Select value={form.disciplineId} onValueChange={(v) => setForm((p) => ({ ...p, disciplineId: v }))}>
                 <SelectTrigger className="bg-background font-sans">
-                  <SelectValue placeholder={language === "pt" ? "Disciplina *" : "Discipline *"} />
+                  <SelectValue placeholder={language === "pt" ? "Grande Área *" : "Major Area *"} />
                 </SelectTrigger>
                 <SelectContent>
                   {disciplines?.map((d) => (
@@ -377,7 +377,7 @@ export default function DiscursiveBank() {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder={language === "pt" ? "Tag de assunto" : "Subject tag"} value={form.subjectTag} onChange={(e) => setForm((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder={language === "pt" ? "Tag de disciplina" : "Discipline tag"} value={form.subjectTag} onChange={(e) => setForm((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
               <Input placeholder={language === "pt" ? "Autor / Banca" : "Author / Board"} value={form.author} onChange={(e) => setForm((p) => ({ ...p, author: e.target.value }))} className="font-sans bg-background" />
             </div>
             <textarea

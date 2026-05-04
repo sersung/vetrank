@@ -140,7 +140,7 @@ export default function PracticeMode() {
           <CardContent className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <div>
-                <Label className="text-xs mb-1 block">Disciplina</Label>
+                <Label className="text-xs mb-1 block">Grande Área</Label>
                 <Select onValueChange={(v) => { setDisciplineId(v === "all" ? undefined : Number(v)); setSubjectId(undefined); }}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
@@ -152,7 +152,7 @@ export default function PracticeMode() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs mb-1 block">Assunto</Label>
+                <Label className="text-xs mb-1 block">Disciplina</Label>
                 <Select onValueChange={(v) => setSubjectId(v === "all" ? undefined : Number(v))} disabled={!disciplineId}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>

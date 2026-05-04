@@ -42,7 +42,7 @@ export default function Dashboard() {
         <Card className="p-8 text-center max-w-sm">
           <Target className="w-12 h-12 text-primary mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Faça login para ver seu desempenho</h2>
-          <p className="text-muted-foreground mb-4">Acompanhe seu progresso, XP e estatísticas por disciplina.</p>
+          <p className="text-muted-foreground mb-4">Acompanhe seu progresso, XP e estatísticas por grande área.</p>
           <Button asChild className="w-full">
             <a href={getLoginUrl()}>Entrar na plataforma</a>
           </Button>
@@ -199,7 +199,7 @@ export default function Dashboard() {
           {/* Accuracy by Discipline */}
           <Card className="border-border/50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Desempenho por Disciplina</CardTitle>
+              <CardTitle className="text-base">Desempenho por Grande Área</CardTitle>
             </CardHeader>
             <CardContent>
               {byDiscipline.length === 0 ? (
@@ -257,7 +257,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-cyan-400" />
-                Desempenho por Assunto
+                Desempenho por Disciplina
               </CardTitle>
             </CardHeader>
             <CardContent>

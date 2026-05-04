@@ -202,7 +202,7 @@ export function AIQuestionExtractor({ onQuestionsExtracted }: AIQuestionExtracto
           <p className="text-sm font-medium font-sans">Extração Inteligente via IA</p>
           <p className="text-xs text-muted-foreground font-sans mt-0.5">
             Faça upload de um arquivo PDF ou Word contendo questões de veterinária. A IA identificará
-            automaticamente os enunciados, alternativas, gabaritos, dificuldade e disciplina sugerida.
+            automaticamente os enunciados, alternativas, gabaritos, dificuldade e grande área sugerida.
             Após a extração, você poderá revisar e editar antes de importar.
           </p>
           <div className="flex gap-2 mt-2 flex-wrap">
@@ -391,12 +391,12 @@ export function AIQuestionExtractor({ onQuestionsExtracted }: AIQuestionExtracto
                           </select>
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-muted-foreground font-sans block mb-1">Disciplina sugerida</label>
+                          <label className="text-xs font-medium text-muted-foreground font-sans block mb-1">Grande Área sugerida</label>
                           <Input
                             value={q.disciplineSuggestion}
                             onChange={(e) => updateQuestion(idx, "disciplineSuggestion", e.target.value)}
                             className="text-sm font-sans bg-background h-8"
-                            placeholder="Ex: Farmacologia"
+                            placeholder="Ex: Ciências Biológicas e Ciclo Básico"
                           />
                         </div>
                         <div>

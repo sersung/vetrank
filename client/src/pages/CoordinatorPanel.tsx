@@ -170,7 +170,7 @@ export default function CoordinatorPanel() {
           <TabsContent value="permissions">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Gerenciar Permissões por Disciplina</CardTitle>
+                <CardTitle className="text-lg">Gerenciar Permissões por Grande Área</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
@@ -192,18 +192,18 @@ export default function CoordinatorPanel() {
                 {selectedTeacherId && (
                   <>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-medium">Disciplinas Autorizadas</h3>
+                      <h3 className="font-medium">Grandes Áreas Autorizadas</h3>
                       <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm"><UserPlus className="w-4 h-4 mr-2" />Adicionar Disciplina</Button>
+                          <Button size="sm"><UserPlus className="w-4 h-4 mr-2" />Adicionar Grande Área</Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Conceder Permissão de Disciplina</DialogTitle>
+                            <DialogTitle>Conceder Permissão de Grande Área</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4 pt-2">
                             <div>
-                              <Label className="mb-2 block">Disciplina</Label>
+                              <Label className="mb-2 block">Grande Área</Label>
                               <Select onValueChange={setSelectedDisciplineId}>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione..." />

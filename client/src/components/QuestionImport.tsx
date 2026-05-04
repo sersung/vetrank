@@ -279,7 +279,7 @@ function TemplateDownloadSection({ type }: { type: "multiple_choice" | "discursi
               <div className="mt-3 text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">Campos obrigatórios:</p>
                 <p><code className="bg-muted px-1 rounded">textPt</code> — Enunciado em português</p>
-                <p><code className="bg-muted px-1 rounded">disciplineId</code> — ID da disciplina (número)</p>
+                <p><code className="bg-muted px-1 rounded">disciplineId</code> — ID da grande área (número)</p>
                 <p><code className="bg-muted px-1 rounded">difficulty</code> — easy | medium | hard</p>
                 <p><code className="bg-muted px-1 rounded">optA</code> a <code className="bg-muted px-1 rounded">optE</code> — Texto de cada alternativa</p>
                 <p><code className="bg-muted px-1 rounded">correctOption</code> — A | B | C | D | E</p>
@@ -305,7 +305,7 @@ function TemplateDownloadSection({ type }: { type: "multiple_choice" | "discursi
               <div className="mt-3 text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">Campos obrigatórios:</p>
                 <p><code className="bg-muted px-1 rounded">textPt</code> — Enunciado em português</p>
-                <p><code className="bg-muted px-1 rounded">disciplineId</code> — ID da disciplina (número)</p>
+                <p><code className="bg-muted px-1 rounded">disciplineId</code> — ID da grande área (número)</p>
                 <p><code className="bg-muted px-1 rounded">difficulty</code> — easy | medium | hard</p>
                 <p><code className="bg-muted px-1 rounded">expectedAnswerPt</code> — Resposta esperada em português</p>
                 <p className="font-medium text-foreground mt-2">Campos opcionais:</p>

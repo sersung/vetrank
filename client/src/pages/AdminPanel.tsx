@@ -113,6 +113,22 @@ export default function AdminPanel() {
   const [assignDisciplineId, setAssignDisciplineId] = useState<string>("");
   const [selectedForAssignment, setSelectedForAssignment] = useState<number[]>([]);
   const isAdmin = user?.role === "admin";
+
+  // Stabilize query inputs with useMemo to prevent infinite re-fetches
+  const validationListInput = useMemo(() => ({
+    questionType: "multiple_choice" as const,
+    disciplineId: (assignDisciplineId && assignDisciplineId !== "all") ? Number(assignDisciplineId) : undefined,
+    isValidated: false,
+    page: 1,
+    pageSize: 50,
+  }), [assignDisciplineId]);
+
+  const allAssignmentsInput = useMemo(() => ({
+    status: validationFilter as "all" | "pending" | "approved" | "rejected",
+    page: 1,
+    pageSize: 30,
+  }), [validationFilter]);
+
   const { data: validationStats, refetch: refetchValidationStats } = trpc.validation.getValidationStats.useQuery(
     undefined,
     { enabled: isAdmin }
@@ -122,11 +138,11 @@ export default function AdminPanel() {
     { enabled: isAdmin }
   );
   const { data: questionsForValidation, refetch: refetchValidationList } = trpc.validation.listForValidation.useQuery(
-    { questionType: "multiple_choice", disciplineId: assignDisciplineId ? Number(assignDisciplineId) : undefined, isValidated: false, page: 1, pageSize: 50 },
+    validationListInput,
     { enabled: isAdmin }
   );
   const { data: allAssignments, refetch: refetchAllAssignments } = trpc.validation.listAllAssignments.useQuery(
-    { status: validationFilter === "all" ? "all" : validationFilter, page: 1, pageSize: 30 },
+    allAssignmentsInput,
     { enabled: isAdmin }
   );
   const createAssignment = trpc.validation.createAssignment.useMutation();
@@ -220,7 +236,7 @@ export default function AdminPanel() {
     }
     try {
       await createDiscipline.mutateAsync(newDiscipline);
-      toast.success(language === "pt" ? "Disciplina criada!" : "Discipline created!");
+      toast.success(language === "pt" ? "Grande Área criada!" : "Major Area created!");
       setShowAddDiscipline(false);
       setNewDiscipline({ slug: "", namePt: "", nameEn: "" });
       refetchDisciplines();
@@ -236,7 +252,7 @@ export default function AdminPanel() {
     }
     try {
       await createSubject.mutateAsync({ ...newSubject, disciplineId: parseInt(newSubject.disciplineId) });
-      toast.success(language === "pt" ? "Assunto criado!" : "Subject created!");
+      toast.success(language === "pt" ? "Disciplina criada!" : "Discipline created!");
       setShowAddSubject(false);
       setNewSubject({ disciplineId: "", slug: "", namePt: "", nameEn: "" });
       refetchSubjects();
@@ -258,7 +274,7 @@ export default function AdminPanel() {
 
   const handleAiGenerate = async () => {
     if (!aiGenConfig.disciplineId) {
-      toast.error(language === "pt" ? "Selecione uma disciplina" : "Select a discipline");
+      toast.error(language === "pt" ? "Selecione uma grande área" : "Select a major area");
       return;
     }
     const disc = disciplines?.find((d) => String(d.id) === aiGenConfig.disciplineId);
@@ -513,7 +529,7 @@ export default function AdminPanel() {
           <div>
             <h1 className="font-serif text-3xl font-bold mb-1">{t("admin_title")}</h1>
             <p className="text-muted-foreground font-sans text-sm">
-              {language === "pt" ? "Gerencie questões, disciplinas e assuntos" : "Manage questions, disciplines, and subjects"}
+              {language === "pt" ? "Gerencie questões, grandes áreas e disciplinas" : "Manage questions, major areas, and disciplines"}
             </p>
           </div>
           <Button
@@ -785,7 +801,7 @@ export default function AdminPanel() {
               ))}
               {!disciplines?.length && (
                 <div className="text-center py-10 text-muted-foreground font-sans">
-                  {language === "pt" ? "Nenhuma disciplina. Clique em 'Inicializar Dados'." : "No disciplines. Click 'Initialize Data'."}
+                  {language === "pt" ? "Nenhuma grande área. Clique em 'Inicializar Dados'." : "No major areas. Click 'Initialize Data'."}
                 </div>
               )}
             </div>
@@ -812,7 +828,7 @@ export default function AdminPanel() {
               ))}
               {!subjects?.length && (
                 <div className="text-center py-10 text-muted-foreground font-sans">
-                  {language === "pt" ? "Nenhum assunto cadastrado." : "No subjects yet."}
+                  {language === "pt" ? "Nenhuma disciplina cadastrada." : "No disciplines yet."}
                 </div>
               )}
             </div>
@@ -984,7 +1000,7 @@ export default function AdminPanel() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Assunto" : "Subject"}</label>
+                    <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Assunto do Email" : "Email Subject"}</label>
                     <Input
                       placeholder={language === "pt" ? "Ex: Novidades do VetRank — Maio 2026" : "Ex: VetRank Updates — May 2026"}
                       value={newsletterSubject}
@@ -1121,10 +1137,10 @@ export default function AdminPanel() {
                   </Select>
                   <Select value={assignDisciplineId} onValueChange={setAssignDisciplineId}>
                     <SelectTrigger className="w-52 font-sans">
-                      <SelectValue placeholder="Filtrar por disciplina" />
+                      <SelectValue placeholder="Filtrar por grande área" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todas as disciplinas</SelectItem>
+                      <SelectItem value="all">Todas as grandes áreas</SelectItem>
                       {disciplines?.map(d => (
                         <SelectItem key={d.id} value={String(d.id)}>{d.namePt}</SelectItem>
                       ))}
@@ -1242,7 +1258,7 @@ export default function AdminPanel() {
       <Dialog open={showAddDiscipline} onOpenChange={setShowAddDiscipline}>
         <DialogContent className="bg-card border-border/50">
           <DialogHeader>
-            <DialogTitle className="font-serif">{language === "pt" ? "Nova Disciplina" : "New Discipline"}</DialogTitle>
+            <DialogTitle className="font-serif">{language === "pt" ? "Nova Grande Área" : "New Major Area"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input placeholder="Slug (ex: pharmacology)" value={newDiscipline.slug} onChange={(e) => setNewDiscipline((p) => ({ ...p, slug: e.target.value }))} className="font-sans bg-background" />
@@ -1262,7 +1278,7 @@ export default function AdminPanel() {
       <Dialog open={showAddSubject} onOpenChange={setShowAddSubject}>
         <DialogContent className="bg-card border-border/50">
           <DialogHeader>
-            <DialogTitle className="font-serif">{language === "pt" ? "Novo Assunto" : "New Subject"}</DialogTitle>
+            <DialogTitle className="font-serif">{language === "pt" ? "Nova Disciplina" : "New Discipline"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Select value={newSubject.disciplineId} onValueChange={(v) => setNewSubject((p) => ({ ...p, disciplineId: v }))}>
@@ -1415,7 +1431,7 @@ export default function AdminPanel() {
 
             {/* Subject tag + Author */}
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder={language === "pt" ? "Tag de assunto" : "Subject tag"} value={newQuestion.subjectTag} onChange={(e) => setNewQuestion((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder={language === "pt" ? "Tag de disciplina" : "Discipline tag"} value={newQuestion.subjectTag} onChange={(e) => setNewQuestion((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
               <Input placeholder={language === "pt" ? "Autor / Banca" : "Author / Board"} value={newQuestion.author} onChange={(e) => setNewQuestion((p) => ({ ...p, author: e.target.value }))} className="font-sans bg-background" />
             </div>
 
