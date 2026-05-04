@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleMPWebhook } from "../mpWebhook";
+import { runExpiryEmailCheck } from "../routers/notifications";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -39,6 +40,15 @@ async function startServer() {
   registerOAuthRoutes(app);
   // Mercado Pago webhook — must be registered before tRPC
   app.post("/api/mp/webhook", handleMPWebhook);
+  // Scheduled task endpoint: trigger expiry email check
+  app.post("/api/scheduled/send-expiry-emails", async (_req, res) => {
+    try {
+      const result = await runExpiryEmailCheck();
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

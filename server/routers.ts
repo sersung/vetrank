@@ -15,6 +15,7 @@ import { announcementsRouter } from "./routers/announcements";
 import { reportsRouter } from "./routers/reports";
 import { lgpdRouter, practiceRouter } from "./routers/lgpd";
 import { paymentRouter } from "./routers/payment";
+import { notificationsRouter } from "./routers/notifications";
 
 export const appRouter = router({
   system: systemRouter,
@@ -40,6 +41,7 @@ export const appRouter = router({
   lgpd: lgpdRouter,
   practice: practiceRouter,
   payment: paymentRouter,
+  notifications: notificationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -26,9 +26,11 @@ import {
   Crown,
   Database,
   Edit,
+  FileJson,
   Loader2,
   Mail,
   Plus,
+  Send,
   Shield,
   Trash2,
   Upload,
@@ -36,7 +38,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 export default function AdminPanel() {
@@ -62,6 +64,25 @@ export default function AdminPanel() {
   );
   const updateCustomerPlan = trpc.admin.updateCustomerPlan.useMutation();
 
+  // Email state
+  const [newsletterSubject, setNewsletterSubject] = useState("");
+  const [newsletterBody, setNewsletterBody] = useState("");
+  const [newsletterTarget, setNewsletterTarget] = useState<"all" | "free" | "trial" | "premium">("all");
+  const { data: expiryPreview, refetch: refetchExpiryPreview } = trpc.notifications.previewExpiryTargets.useQuery(
+    undefined,
+    { enabled: user?.role === "admin" }
+  );
+  const sendNewsletter = trpc.notifications.sendNewsletter.useMutation();
+  const sendExpiryEmails = trpc.notifications.sendExpiryEmails.useMutation();
+
+  // Bulk upload state
+  const [bulkJson, setBulkJson] = useState("");
+  const [bulkPreview, setBulkPreview] = useState<any[] | null>(null);
+  const [bulkError, setBulkError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const bulkJsonRef = useRef<HTMLInputElement>(null);
+  const bulkImport = trpc.questions.bulkImport.useMutation();
+
   const seedMutation = trpc.admin.seed.useMutation();
   const createDiscipline = trpc.admin.createDiscipline.useMutation();
   const createSubject = trpc.admin.createSubject.useMutation();
@@ -81,8 +102,8 @@ export default function AdminPanel() {
   const [newQuestion, setNewQuestion] = useState({
     textPt: "", textEn: "", disciplineId: "", subjectId: "",
     difficulty: "medium", year: "", isPremium: false,
-    optA: "", optB: "", optC: "", optD: "",
-    optAEn: "", optBEn: "", optCEn: "", optDEn: "",
+    optA: "", optB: "", optC: "", optD: "", optE: "",
+    optAEn: "", optBEn: "", optCEn: "", optDEn: "", optEEn: "",
     correctOption: "A", explanationPt: "", explanationEn: "",
   });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -215,6 +236,7 @@ export default function AdminPanel() {
         { id: "B", textPt: newQuestion.optB, textEn: newQuestion.optBEn || newQuestion.optB },
         { id: "C", textPt: newQuestion.optC, textEn: newQuestion.optCEn || newQuestion.optC },
         { id: "D", textPt: newQuestion.optD, textEn: newQuestion.optDEn || newQuestion.optD },
+        ...(newQuestion.optE ? [{ id: "E", textPt: newQuestion.optE, textEn: newQuestion.optEEn || newQuestion.optE }] : []),
       ];
       await createQuestion.mutateAsync({
         textPt: newQuestion.textPt,
@@ -249,6 +271,109 @@ export default function AdminPanel() {
       toast.error(err.message);
     }
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // ─── Email handlers ────────────────────────────────────────────────────────
+  const handleSendNewsletter = async () => {
+    if (!newsletterSubject.trim() || !newsletterBody.trim()) {
+      toast.error(language === "pt" ? "Preencha assunto e corpo do email" : "Fill in subject and body");
+      return;
+    }
+    if (!confirm(language === "pt" ? `Enviar newsletter para todos os usuários (${newsletterTarget})? Esta ação não pode ser desfeita.` : `Send newsletter to all ${newsletterTarget} users? This cannot be undone.`)) return;
+    try {
+      const result = await sendNewsletter.mutateAsync({ subject: newsletterSubject, body: newsletterBody, targetPlan: newsletterTarget });
+      toast.success(language === "pt" ? `Newsletter enviada! ${result.sent} enviados, ${result.failed} falhas.` : `Newsletter sent! ${result.sent} sent, ${result.failed} failed.`);
+      setNewsletterSubject("");
+      setNewsletterBody("");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleSendExpiryEmails = async () => {
+    if (!confirm(language === "pt" ? "Disparar emails de expiração agora?" : "Trigger expiry emails now?")) return;
+    try {
+      const result = await sendExpiryEmails.mutateAsync();
+      toast.success(language === "pt" ? `Emails disparados! ${result.sent} enviados, ${result.failed} falhas.` : `Emails triggered! ${result.sent} sent, ${result.failed} failed.`);
+      refetchExpiryPreview();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  // ─── Bulk upload handlers ──────────────────────────────────────────────────
+  const parseBulkJson = (text: string) => {
+    setBulkError("");
+    setBulkPreview(null);
+    if (!text.trim()) return;
+    try {
+      const parsed = JSON.parse(text);
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      if (arr.length === 0) { setBulkError(language === "pt" ? "Array vazio" : "Empty array"); return; }
+      // Validate minimal required fields
+      const invalid = arr.findIndex((q: any) => !q.textPt || !q.disciplineId || !q.options || !q.correctOption);
+      if (invalid >= 0) {
+        setBulkError(language === "pt" ? `Questão ${invalid + 1} está faltando campos obrigatórios (textPt, disciplineId, options, correctOption)` : `Question ${invalid + 1} is missing required fields (textPt, disciplineId, options, correctOption)`);
+        return;
+      }
+      setBulkPreview(arr);
+    } catch (e: any) {
+      setBulkError(language === "pt" ? `JSON inválido: ${e.message}` : `Invalid JSON: ${e.message}`);
+    }
+  };
+
+  const handleBulkJsonFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setBulkJson(text);
+    parseBulkJson(text);
+    if (bulkJsonRef.current) bulkJsonRef.current.value = "";
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => setIsDragOver(false), []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith(".json") && !file.name.endsWith(".csv")) {
+      toast.error(language === "pt" ? "Apenas arquivos .json ou .csv são suportados" : "Only .json or .csv files are supported");
+      return;
+    }
+    const text = await file.text();
+    if (file.name.endsWith(".json")) {
+      setBulkJson(text);
+      parseBulkJson(text);
+    } else {
+      // CSV drop → use existing importCsv
+      try {
+        const result = await importCsv.mutateAsync({ csv: text });
+        toast.success(`${result.imported} ${language === "pt" ? "questões importadas!" : "questions imported!"}`);
+        refetchQuestions();
+      } catch (err: any) {
+        toast.error(err.message);
+      }
+    }
+  }, [language]);
+
+  const handleBulkImport = async () => {
+    if (!bulkPreview || bulkPreview.length === 0) return;
+    try {
+      const result = await bulkImport.mutateAsync({ questions: bulkPreview });
+      toast.success(`${result.imported} ${language === "pt" ? "questões importadas!" : "questions imported!"}`);
+      setBulkJson("");
+      setBulkPreview(null);
+      refetchQuestions();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   return (
@@ -292,13 +417,21 @@ export default function AdminPanel() {
         )}
 
         <Tabs defaultValue="questions">
-          <TabsList className="mb-6 bg-card border border-border/50">
+          <TabsList className="mb-6 bg-card border border-border/50 flex-wrap h-auto gap-1">
             <TabsTrigger value="questions" className="font-sans">{t("admin_questions")}</TabsTrigger>
+            <TabsTrigger value="upload" className="font-sans gap-1">
+              <Upload className="h-3.5 w-3.5" />
+              {language === "pt" ? "Upload" : "Upload"}
+            </TabsTrigger>
             <TabsTrigger value="disciplines" className="font-sans">{t("admin_disciplines")}</TabsTrigger>
             <TabsTrigger value="subjects" className="font-sans">{t("admin_subjects")}</TabsTrigger>
             <TabsTrigger value="customers" className="font-sans gap-1">
               <Users className="h-3.5 w-3.5" />
               {language === "pt" ? "Clientes" : "Customers"}
+            </TabsTrigger>
+            <TabsTrigger value="emails" className="font-sans gap-1">
+              <Mail className="h-3.5 w-3.5" />
+              {language === "pt" ? "Emails" : "Emails"}
             </TabsTrigger>
           </TabsList>
 
@@ -336,7 +469,9 @@ export default function AdminPanel() {
             </div>
 
             <div className="text-xs text-muted-foreground font-sans mb-3 p-3 bg-card rounded-lg border border-border/50">
-              <strong>CSV format:</strong> textPt,textEn,disciplineId,difficulty,optA,optB,optC,optD,correctOption,explanationPt,year,isPremium
+              <strong>CSV format (4 opções):</strong> textPt,textEn,disciplineId,difficulty,optA,optB,optC,optD,correctOption,explanationPt,year,isPremium
+              <br />
+              <span className="text-primary">Para 5 opções (A-E) use a aba <strong>Upload</strong> com JSON.</span>
             </div>
 
             <div className="space-y-2">
@@ -367,6 +502,123 @@ export default function AdminPanel() {
               {!questions?.questions.length && (
                 <div className="text-center py-10 text-muted-foreground font-sans">
                   {language === "pt" ? "Nenhuma questão cadastrada. Clique em 'Inicializar Dados' para adicionar questões de exemplo." : "No questions yet. Click 'Initialize Data' to add sample questions."}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Upload tab — enhanced bulk import */}
+          <TabsContent value="upload">
+            <div className="space-y-6">
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                  isDragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-border/50 bg-card hover:border-primary/40 hover:bg-primary/3"
+                }`}
+                onClick={() => bulkJsonRef.current?.click()}
+              >
+                <Upload className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                <p className="font-sans font-medium text-sm mb-1">
+                  {language === "pt" ? "Arraste um arquivo JSON ou CSV aqui" : "Drag a JSON or CSV file here"}
+                </p>
+                <p className="text-xs text-muted-foreground font-sans">
+                  {language === "pt" ? "ou clique para selecionar" : "or click to select"}
+                </p>
+                <input ref={bulkJsonRef} type="file" accept=".json,.csv" className="hidden" onChange={handleBulkJsonFile} />
+              </div>
+
+              {/* JSON format documentation */}
+              <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileJson className="h-4 w-4 text-primary" />
+                  <span className="font-sans font-medium text-sm">{language === "pt" ? "Formato JSON (suporta 5 opções A-E)" : "JSON Format (supports 5 options A-E)"}</span>
+                </div>
+                <pre className="text-xs font-mono bg-background rounded-lg p-3 border border-border/30 overflow-x-auto text-muted-foreground whitespace-pre">{`[
+  {
+    "textPt": "Qual é o principal agente causador de...",
+    "textEn": "What is the main causative agent of...",
+    "disciplineId": 1,
+    "subjectId": 3,
+    "difficulty": "medium",
+    "year": 2023,
+    "isPremium": false,
+    "options": [
+      { "id": "A", "textPt": "Opção A", "textEn": "Option A" },
+      { "id": "B", "textPt": "Opção B", "textEn": "Option B" },
+      { "id": "C", "textPt": "Opção C", "textEn": "Option C" },
+      { "id": "D", "textPt": "Opção D", "textEn": "Option D" },
+      { "id": "E", "textPt": "Opção E", "textEn": "Option E" }
+    ],
+    "correctOption": "C",
+    "explanationPt": "Explicação detalhada...",
+    "explanationEn": "Detailed explanation..."
+  }
+]`}</pre>
+              </div>
+
+              {/* JSON text area */}
+              <div>
+                <label className="text-xs font-sans font-medium text-muted-foreground mb-2 block">
+                  {language === "pt" ? "Ou cole o JSON diretamente:" : "Or paste JSON directly:"}
+                </label>
+                <textarea
+                  value={bulkJson}
+                  onChange={(e) => {
+                    setBulkJson(e.target.value);
+                    parseBulkJson(e.target.value);
+                  }}
+                  placeholder='[{ "textPt": "...", "disciplineId": 1, ... }]'
+                  className="w-full h-32 p-3 rounded-lg bg-background border border-border/50 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Error */}
+              {bulkError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive font-sans">
+                  {bulkError}
+                </div>
+              )}
+
+              {/* Preview */}
+              {bulkPreview && bulkPreview.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-sans font-medium">
+                      {language === "pt" ? `Pré-visualização: ${bulkPreview.length} questão(ões)` : `Preview: ${bulkPreview.length} question(s)`}
+                    </span>
+                    <Button
+                      size="sm"
+                      className="bg-primary text-primary-foreground gap-2 font-sans"
+                      onClick={handleBulkImport}
+                      disabled={bulkImport.isPending}
+                    >
+                      {bulkImport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {language === "pt" ? `Importar ${bulkPreview.length} questão(ões)` : `Import ${bulkPreview.length} question(s)`}
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {bulkPreview.slice(0, 10).map((q: any, i: number) => (
+                      <div key={i} className="p-3 bg-card border border-border/50 rounded-lg">
+                        <p className="text-xs font-sans font-medium line-clamp-2">{q.textPt}</p>
+                        <div className="flex gap-2 mt-1.5 flex-wrap">
+                          <Badge variant="outline" className="text-xs font-sans">disciplineId: {q.disciplineId}</Badge>
+                          <Badge variant="outline" className="text-xs font-sans">{q.difficulty || "medium"}</Badge>
+                          <Badge variant="outline" className="text-xs font-sans">{q.options?.length || 0} opções</Badge>
+                          <Badge className="text-xs font-sans bg-green-500/20 text-green-400 border-green-500/30 border">✓ {q.correctOption}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {bulkPreview.length > 10 && (
+                      <p className="text-xs text-muted-foreground font-sans text-center py-2">
+                        {language === "pt" ? `... e mais ${bulkPreview.length - 10} questão(ões)` : `... and ${bulkPreview.length - 10} more question(s)`}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -428,6 +680,7 @@ export default function AdminPanel() {
               )}
             </div>
           </TabsContent>
+
           {/* Customers tab */}
           <TabsContent value="customers">
             <div className="flex gap-3 mb-4 flex-wrap">
@@ -563,6 +816,126 @@ export default function AdminPanel() {
                   </div>
                 </div>
               )}
+            </div>
+          </TabsContent>
+
+          {/* Emails tab */}
+          <TabsContent value="emails">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+              {/* Newsletter section */}
+              <div className="bg-card border border-border/50 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-border/30">
+                  <Send className="h-4 w-4 text-primary" />
+                  <h3 className="font-sans font-semibold text-sm">{language === "pt" ? "Enviar Newsletter" : "Send Newsletter"}</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Destinatários" : "Recipients"}</label>
+                    <Select value={newsletterTarget} onValueChange={(v) => setNewsletterTarget(v as any)}>
+                      <SelectTrigger className="bg-background font-sans h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{language === "pt" ? "Todos os usuários" : "All users"}</SelectItem>
+                        <SelectItem value="free">{language === "pt" ? "Plano Free" : "Free plan"}</SelectItem>
+                        <SelectItem value="trial">{language === "pt" ? "Em Trial" : "On Trial"}</SelectItem>
+                        <SelectItem value="premium">{language === "pt" ? "Premium" : "Premium"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Assunto" : "Subject"}</label>
+                    <Input
+                      placeholder={language === "pt" ? "Ex: Novidades do VetRank — Maio 2026" : "Ex: VetRank Updates — May 2026"}
+                      value={newsletterSubject}
+                      onChange={(e) => setNewsletterSubject(e.target.value)}
+                      className="font-sans bg-background h-9 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Corpo do email (HTML ou texto)" : "Email body (HTML or text)"}</label>
+                    <textarea
+                      placeholder={language === "pt" ? "Escreva o conteúdo do email aqui..." : "Write email content here..."}
+                      value={newsletterBody}
+                      onChange={(e) => setNewsletterBody(e.target.value)}
+                      className="w-full h-40 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full bg-primary text-primary-foreground gap-2 font-sans"
+                    onClick={handleSendNewsletter}
+                    disabled={sendNewsletter.isPending || !newsletterSubject.trim() || !newsletterBody.trim()}
+                  >
+                    {sendNewsletter.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    {language === "pt" ? "Enviar Newsletter" : "Send Newsletter"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Expiry notifications section */}
+              <div className="bg-card border border-border/50 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-border/30">
+                  <Mail className="h-4 w-4 text-yellow-400" />
+                  <h3 className="font-sans font-semibold text-sm">{language === "pt" ? "Notificações de Expiração" : "Expiry Notifications"}</h3>
+                </div>
+
+                {/* Preview counts */}
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-sans">
+                    {language === "pt" ? "Usuários que receberiam emails agora:" : "Users who would receive emails now:"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        label: language === "pt" ? "Trial expira em 3 dias" : "Trial expiring in 3 days",
+                        count: expiryPreview?.trialExpiring3Days?.length ?? 0,
+                        color: "text-primary",
+                      },
+                      {
+                        label: language === "pt" ? "Trial expira em 1 dia" : "Trial expiring in 1 day",
+                        count: expiryPreview?.trialExpiring1Day?.length ?? 0,
+                        color: "text-orange-400",
+                      },
+                      {
+                        label: language === "pt" ? "Premium expira em 7 dias" : "Premium expiring in 7 days",
+                        count: expiryPreview?.premiumExpiring7Days?.length ?? 0,
+                        color: "text-yellow-400",
+                      },
+                      {
+                        label: language === "pt" ? "Premium expira em 1 dia" : "Premium expiring in 1 day",
+                        count: expiryPreview?.premiumExpiring1Day?.length ?? 0,
+                        color: "text-red-400",
+                      },
+                    ].map((item) => (
+                      <div key={item.label} className="p-3 bg-background rounded-lg border border-border/30">
+                        <div className={`font-serif text-2xl font-bold ${item.color}`}>{item.count}</div>
+                        <div className="text-xs text-muted-foreground font-sans mt-0.5 leading-tight">{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg text-xs text-muted-foreground font-sans">
+                  {language === "pt"
+                    ? "Os emails de expiração são disparados automaticamente todo dia às 09:00. Use o botão abaixo para disparar manualmente."
+                    : "Expiry emails are automatically sent every day at 09:00. Use the button below to trigger them manually."}
+                </div>
+
+                <Button
+                  className="w-full bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2 font-sans"
+                  variant="outline"
+                  onClick={handleSendExpiryEmails}
+                  disabled={sendExpiryEmails.isPending}
+                >
+                  {sendExpiryEmails.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  {language === "pt" ? "Disparar Emails de Expiração Agora" : "Trigger Expiry Emails Now"}
+                </Button>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -727,6 +1100,8 @@ export default function AdminPanel() {
               <Input placeholder="Option C EN" value={newQuestion.optCEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optCEn: e.target.value }))} className="font-sans bg-background" />
               <Input placeholder="Opção D PT *" value={newQuestion.optD} onChange={(e) => setNewQuestion((p) => ({ ...p, optD: e.target.value }))} className="font-sans bg-background" />
               <Input placeholder="Option D EN" value={newQuestion.optDEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optDEn: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder="Opção E PT (opcional)" value={newQuestion.optE} onChange={(e) => setNewQuestion((p) => ({ ...p, optE: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder="Option E EN" value={newQuestion.optEEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optEEn: e.target.value }))} className="font-sans bg-background" />
             </div>
             <Select value={newQuestion.correctOption} onValueChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}>
               <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={language === "pt" ? "Resposta Correta" : "Correct Answer"} /></SelectTrigger>
@@ -735,6 +1110,7 @@ export default function AdminPanel() {
                 <SelectItem value="B">B</SelectItem>
                 <SelectItem value="C">C</SelectItem>
                 <SelectItem value="D">D</SelectItem>
+                <SelectItem value="E">E</SelectItem>
               </SelectContent>
             </Select>
             <textarea

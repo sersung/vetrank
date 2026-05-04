@@ -164,3 +164,14 @@
 - [ ] Persist theme choice in localStorage
 - [ ] Reformat all 5,661 questions to ENADE Brazil format
 - [ ] Update question display components to render ENADE-style (contexto + enunciado + comando)
+
+## Email Notifications & Admin Upload (May 2026)
+- [x] Build email service using Resend API (transactional emails)
+- [x] Create email templates: trial expiring (3 days), trial expiring (1 day), premium expiring (7 days), premium expiring (1 day)
+- [x] Create newsletter/news email template for admin to send to all users
+- [x] Add /api/scheduled/send-expiry-emails endpoint for scheduled task
+- [x] Add email sending UI in admin panel (compose + send to all users or filtered segment)
+- [x] Add bulk question upload tab in admin panel (CSV + JSON with preview/validation)
+- [x] Support JSON format with all 5 options (A-E), discipline, subject, difficulty, year
+- [x] Show upload preview table before confirming import
+- [x] Show per-row validation errors before import
