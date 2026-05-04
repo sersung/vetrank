@@ -157,3 +157,10 @@
 - [ ] Build customer info panel in Admin: list all users, plan, XP, last login, email
 - [ ] Add support email calefi@csvet.com.br to footer, contact page, and error pages
 - [ ] Update LGPD/Terms pages with support email
+
+## Dark/Light Mode & ENADE Format (May 2026)
+- [ ] Fix dark/light mode toggle — verify CSS variables for both themes
+- [ ] Ensure all page backgrounds, cards, inputs, and text respond to theme switch
+- [ ] Persist theme choice in localStorage
+- [ ] Reformat all 5,661 questions to ENADE Brazil format
+- [ ] Update question display components to render ENADE-style (contexto + enunciado + comando)
