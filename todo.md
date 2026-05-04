@@ -301,3 +301,20 @@
 - [ ] Privacy Policy: LGPD compliant with CSVET data
 - [ ] Consent modal: require acceptance of ToS before activating trial
 - [ ] Footer: CNPJ, email adm@csvet.com.br, support email calefi@csvet.com.br
+
+## Auth Guards & Security (May 2026)
+- [ ] Add auth guard to ExamPage (Simulados) - redirect unauthenticated to login
+- [ ] Add auth guard to Trails page - redirect unauthenticated to login
+- [ ] Add auth guard to TrailDetail page - redirect unauthenticated to login
+- [ ] Add auth guard to DiscursiveBank page - redirect unauthenticated to login
+- [ ] Add rate limiting middleware to /api/trpc question endpoints (max 100 req/min per IP)
+- [ ] Filter question correctOption from list/getById responses for unauthenticated users
+- [ ] Add server-side access control: questions.list and questions.getById require auth
+- [ ] Add request fingerprinting/logging for suspicious bulk access patterns
+
+## Trail Seeding (May 2026)
+- [ ] Seed Fisiologia Animal I trail (7 modules: Introdução, Celular, Neurofisiologia, Muscular, Cardíaca, Circulatória, Renal)
+- [ ] Seed Fisiologia Animal II trail (4 modules: Digestório, Respiratório, Endócrino, Reprodutor)
+- [ ] Seed Fisiologia Geral trail (combines Fisio I + II, 11 modules total)
+- [ ] Seed Patologia Geral trail (9 modules from document)
+- [ ] Seed Patologia Especial trail (5 modules from document)

@@ -27,14 +27,15 @@ import DiscursiveBank from "./pages/DiscursiveBank";
 import Trails from "./pages/Trails";
 import TrailDetail from "./pages/TrailDetail";
 import Referrals from "./pages/Referrals";
+import AuthGuard from "./components/AuthGuard";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/bank" component={QuestionBank} />
-      <Route path="/exam" component={ExamPage} />
-      <Route path="/practice" component={PracticeMode} />
+      <Route path="/exam">{() => <AuthGuard><ExamPage /></AuthGuard>}</Route>
+      <Route path="/practice">{() => <AuthGuard><PracticeMode /></AuthGuard>}</Route>
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/profile" component={Profile} />
       <Route path="/dashboard" component={Dashboard} />
@@ -48,10 +49,10 @@ function Router() {
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/failure" component={PaymentFailure} />
       <Route path="/payment/pending" component={PaymentFailure} />
-      <Route path="/discursive" component={DiscursiveBank} />
-      <Route path="/trails" component={Trails} />
-      <Route path="/trails/:id" component={TrailDetail} />
-      <Route path="/referrals" component={Referrals} />
+      <Route path="/discursive">{() => <AuthGuard><DiscursiveBank /></AuthGuard>}</Route>
+      <Route path="/trails">{() => <AuthGuard><Trails /></AuthGuard>}</Route>
+      <Route path="/trails/:id">{() => <AuthGuard><TrailDetail /></AuthGuard>}</Route>
+      <Route path="/referrals">{() => <AuthGuard><Referrals /></AuthGuard>}</Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

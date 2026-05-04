@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -10,6 +10,48 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleMPWebhook } from "../mpWebhook";
 import { runExpiryEmailCheck } from "../routers/notifications";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+
+// ─── Rate limiters ─────────────────────────────────────────────────────────────
+
+/** General API limiter: 200 req / 1 min per IP */
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please slow down." },
+});
+
+/** Strict question-scraping limiter: 60 req / 1 min per IP */
+const questionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Question rate limit exceeded. Please wait before fetching more questions." },
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+});
+
+/** Detect bulk scraping: block IPs that fetch >30 questions in 10 seconds */
+const scrapeDetector = (() => {
+  const counts = new Map<string, { count: number; resetAt: number }>();
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip ?? "unknown";
+    const now = Date.now();
+    const entry = counts.get(ip);
+    if (!entry || now > entry.resetAt) {
+      counts.set(ip, { count: 1, resetAt: now + 10_000 });
+    } else {
+      entry.count++;
+      if (entry.count > 30) {
+        res.status(429).json({ error: "Suspicious activity detected. Access temporarily blocked." });
+        return;
+      }
+    }
+    next();
+  };
+})();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -33,13 +75,19 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // Trust proxy headers (required for accurate IP detection behind load balancers)
+  app.set("trust proxy", 1);
+
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
   // Mercado Pago webhook — must be registered before tRPC
   app.post("/api/mp/webhook", handleMPWebhook);
+
   // Scheduled task endpoint: trigger expiry email check
   app.post("/api/scheduled/send-expiry-emails", async (_req, res) => {
     try {
@@ -49,7 +97,17 @@ async function startServer() {
       res.status(500).json({ success: false, error: err.message });
     }
   });
-  // tRPC API
+
+  // ─── Rate limiting & anti-scraping ─────────────────────────────────────────
+  // General rate limit on all tRPC endpoints
+  app.use("/api/trpc", apiLimiter);
+
+  // Stricter limits on question-fetching endpoints to prevent database scraping
+  app.use("/api/trpc/questions.list", questionLimiter, scrapeDetector);
+  app.use("/api/trpc/questions.getById", questionLimiter, scrapeDetector);
+  app.use("/api/trpc/questions.bulkImport", questionLimiter);
+
+  // ─── tRPC API ────────────────────────────────────────────────────────────────
   app.use(
     "/api/trpc",
     createExpressMiddleware({
@@ -57,6 +115,7 @@ async function startServer() {
       createContext,
     })
   );
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
