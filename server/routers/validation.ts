@@ -9,6 +9,12 @@ import {
   users,
 } from "../../drizzle/schema";
 import { eq, and, inArray, sql, desc, count } from "drizzle-orm";
+import { invokeLLM } from "../_core/llm";
+import { createRequire } from "module";
+import mammoth from "mammoth";
+const _require = createRequire(import.meta.url);
+// pdf-parse is a CommonJS module — use createRequire for ESM compatibility
+const pdfParse = _require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string; numpages: number }>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function requireDb() {
@@ -389,5 +395,184 @@ export const validationRouter = router({
       return db.select({ id: users.id, name: users.name, email: users.email })
         .from(users)
         .where(inArray(users.role, ["teacher", "coordinator"]));
+    }),
+
+  // ── Extract questions from PDF or DOCX via AI ──────────────────────────────
+  extractFromFile: protectedProcedure
+    .input(z.object({
+      fileBase64: z.string(),          // base64-encoded file content
+      mimeType: z.enum(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]),
+      fileName: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["teacher", "coordinator", "superuser", "admin"]);
+
+      // ── 1. Extract raw text from file ──────────────────────────────────────
+      let rawText = "";
+      const buffer = Buffer.from(input.fileBase64, "base64");
+
+      if (input.mimeType === "application/pdf") {
+        try {
+          const parsed = await pdfParse(buffer);
+          rawText = parsed.text;
+        } catch (err: unknown) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Erro ao processar PDF: ${(err as Error).message}` });
+        }
+      } else {
+        // DOCX / DOC
+        try {
+          const result = await mammoth.extractRawText({ buffer });
+          rawText = result.value;
+        } catch (err: unknown) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Erro ao processar Word: ${(err as Error).message}` });
+        }
+      }
+
+      if (!rawText.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Nenhum texto encontrado no arquivo. Verifique se o arquivo não está protegido ou escaneado como imagem." });
+      }
+
+      // Limit text to avoid token overflow (keep first 30k chars)
+      const textForLLM = rawText.slice(0, 30000);
+
+      // ── 2. Call LLM to extract structured questions ────────────────────────
+      const systemPrompt = `Você é um especialista em medicina veterinária e criação de questões para concursos e provas do CFMV/CRMV.
+Sua tarefa é extrair questões de múltipla escolha do texto fornecido e retornar um JSON estruturado.
+
+Regras:
+- Identifique cada questão com seu enunciado completo (textPt)
+- Identifique as alternativas A, B, C, D e E (se existirem; preencha com texto vazio se não houver)
+- Identifique o gabarito (correctOption: "A", "B", "C", "D" ou "E")
+- Classifique a dificuldade: "easy" (fácil), "medium" (médio) ou "hard" (difícil)
+- Identifique o tipo: "multiple_choice" (padrão), "assertion_reason" (asserção-razão), "true_false" (V/F), "clinical_case" (caso clínico)
+- Sugira a área/disciplina em português (ex: "Clínica de Pequenos Animais", "Farmacologia", "Patologia Geral")
+- Extraia o ano se mencionado (ex: 2023)
+- Extraia o autor/banca se mencionado (ex: "CFMV", "CRMV-SP")
+- Se houver explicação ou justificativa, inclua em explanationPt
+- Se for asserção-razão, coloque as duas proposições em assertion1 e assertion2
+- Ignore textos que não sejam questões (cabeçalhos, instruções gerais, gabaritos isolados)
+
+Retorne SOMENTE um JSON válido com a estrutura:
+{
+  "questions": [
+    {
+      "textPt": "string",
+      "optA": "string",
+      "optB": "string",
+      "optC": "string",
+      "optD": "string",
+      "optE": "string",
+      "correctOption": "A"|"B"|"C"|"D"|"E",
+      "difficulty": "easy"|"medium"|"hard",
+      "questionType": "multiple_choice"|"assertion_reason"|"true_false"|"clinical_case",
+      "disciplineSuggestion": "string",
+      "year": number|null,
+      "author": "string",
+      "explanationPt": "string",
+      "assertion1": "string",
+      "assertion2": "string"
+    }
+  ]
+}`;
+
+      let llmResult: { questions: any[] };
+      try {
+        const response = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Extraia todas as questões do seguinte texto:\n\n${textForLLM}` },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "extracted_questions",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  questions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        textPt: { type: "string" },
+                        optA: { type: "string" },
+                        optB: { type: "string" },
+                        optC: { type: "string" },
+                        optD: { type: "string" },
+                        optE: { type: "string" },
+                        correctOption: { type: "string" },
+                        difficulty: { type: "string" },
+                        questionType: { type: "string" },
+                        disciplineSuggestion: { type: "string" },
+                        year: { type: ["number", "null"] },
+                        author: { type: "string" },
+                        explanationPt: { type: "string" },
+                        assertion1: { type: "string" },
+                        assertion2: { type: "string" },
+                      },
+                      required: ["textPt", "optA", "optB", "optC", "optD", "optE", "correctOption", "difficulty", "questionType", "disciplineSuggestion", "year", "author", "explanationPt", "assertion1", "assertion2"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["questions"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const content = response.choices?.[0]?.message?.content;
+        if (!content) throw new Error("LLM retornou resposta vazia");
+        const parsed = typeof content === "string" ? JSON.parse(content) : content;
+        llmResult = parsed as { questions: any[] };
+      } catch (err: unknown) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Erro na extração via IA: ${(err as Error).message}`,
+        });
+      }
+
+      // ── 3. Validate and normalize extracted questions ──────────────────────
+      const VALID_OPTIONS = ["A", "B", "C", "D", "E"];
+      const VALID_DIFFICULTIES = ["easy", "medium", "hard"];
+      const VALID_TYPES = ["multiple_choice", "assertion_reason", "complex_multiple_choice", "matching", "true_false", "ordering", "cloze", "clinical_case", "image_analysis", "interpretation", "discursive"];
+
+      const normalized = (llmResult.questions ?? []).map((q: any, i: number) => {
+        const errors: string[] = [];
+        if (!q.textPt?.trim()) errors.push("Enunciado vazio");
+        if (!VALID_OPTIONS.includes(q.correctOption?.toUpperCase())) errors.push(`Gabarito inválido: ${q.correctOption}`);
+        if (!q.optA?.trim() || !q.optB?.trim() || !q.optC?.trim() || !q.optD?.trim()) errors.push("Alternativas incompletas");
+
+        return {
+          textPt: q.textPt ?? "",
+          optA: q.optA ?? "",
+          optB: q.optB ?? "",
+          optC: q.optC ?? "",
+          optD: q.optD ?? "",
+          optE: q.optE ?? "",
+          correctOption: (q.correctOption ?? "A").toUpperCase(),
+          difficulty: VALID_DIFFICULTIES.includes(q.difficulty) ? q.difficulty : "medium",
+          questionType: VALID_TYPES.includes(q.questionType) ? q.questionType : "multiple_choice",
+          disciplineSuggestion: q.disciplineSuggestion ?? "",
+          year: q.year ? Number(q.year) : undefined,
+          author: q.author ?? "",
+          explanationPt: q.explanationPt ?? "",
+          assertion1: q.assertion1 ?? "",
+          assertion2: q.assertion2 ?? "",
+          _rowIndex: i + 1,
+          _errors: errors,
+          _valid: errors.length === 0,
+          _aiExtracted: true,
+        };
+      });
+
+      return {
+        questions: normalized,
+        totalExtracted: normalized.length,
+        validCount: normalized.filter((q: any) => q._valid).length,
+        rawTextLength: rawText.length,
+      };
     }),
 });

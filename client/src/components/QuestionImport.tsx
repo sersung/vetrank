@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ type QuestionType =
   | "interpretation"
   | "discursive";
 
-interface ParsedMCQuestion {
+export interface ParsedMCQuestion {
   textPt: string;
   textEn?: string;
   disciplineId: number;
@@ -329,16 +329,27 @@ function TemplateDownloadSection({ type }: { type: "multiple_choice" | "discursi
 // ─── Main Component ───────────────────────────────────────────────────────────
 interface QuestionImportProps {
   onImportComplete?: (count: number) => void;
+  /** Pre-loaded rows from AI extraction — shown immediately in preview */
+  preloadedRows?: ParsedMCQuestion[];
 }
 
-export function QuestionImport({ onImportComplete }: QuestionImportProps) {
+export function QuestionImport({ onImportComplete, preloadedRows }: QuestionImportProps) {
   const [importType, setImportType] = useState<"multiple_choice" | "discursive">("multiple_choice");
-  const [mcRows, setMcRows] = useState<ParsedMCQuestion[]>([]);
+  const [mcRows, setMcRows] = useState<ParsedMCQuestion[]>(preloadedRows ?? []);
   const [discRows, setDiscRows] = useState<ParsedDiscursiveQuestion[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState((preloadedRows?.length ?? 0) > 0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // When parent passes new pre-loaded rows, load them into preview
+  useEffect(() => {
+    if (preloadedRows && preloadedRows.length > 0) {
+      setMcRows(preloadedRows);
+      setImportType("multiple_choice");
+      setShowPreview(true);
+    }
+  }, [preloadedRows]);
 
   const bulkImport = trpc.questions.bulkImport.useMutation();
   const utils = trpc.useUtils();

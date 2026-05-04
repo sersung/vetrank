@@ -402,3 +402,21 @@
 - [x] Add ipKeyGenerator to apiLimiter (was missing, causing IPv6 warning)
 - [x] Confirm trust proxy is set before rate limiter initialization
 - [x] Verify no ValidationError warnings after server restart
+
+## Extração de Questões via IA (PDF/Word) — May 2026
+
+### Backend
+- [x] Instalar dependências: pdf-parse, mammoth (DOCX → texto)
+- [x] Criar tRPC procedure validation.extractFromFile: recebe base64 + mimeType, extrai texto, chama LLM com prompt estruturado, retorna array de questões no formato padrão
+- [x] Prompt LLM: identificar enunciado, alternativas A-E, gabarito, tipo, dificuldade, disciplina sugerida
+- [x] Suporte a múltiplos formatos: PDF (.pdf) e Word (.docx, .doc)
+- [x] Retornar questões com campo _aiExtracted: true para indicar origem
+
+### Frontend
+- [x] Criar componente AIQuestionExtractor.tsx com upload drag-and-drop para PDF/DOCX
+- [x] Exibir progresso de extração (spinner + mensagem de status)
+- [x] Após extração, passar questões para o QuestionImport como pré-carregadas (mesma tabela de preview)
+- [x] Exibir badge "Extraída por IA" em cada linha da preview
+- [x] Permitir edição inline de campos antes de importar
+- [x] Integrar AIQuestionExtractor na aba Importar do AdminPanel
+- [x] Integrar AIQuestionExtractor na aba Importar do TeacherPanel

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { QuestionImport } from "@/components/QuestionImport";
+import { QuestionImport, type ParsedMCQuestion } from "@/components/QuestionImport";
+import { AIQuestionExtractor, type AIExtractedQuestion } from "@/components/AIQuestionExtractor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
   Upload,
   ClipboardList,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -316,15 +318,7 @@ export default function TeacherPanel() {
           </TabsContent>
 
           <TabsContent value="import">
-            <div className="mb-4">
-              <h2 className="font-serif text-xl font-bold mb-1">Importar Questões</h2>
-              <p className="text-sm text-muted-foreground font-sans">
-                Importe questões em lote via CSV, XLSX ou JSON. Pré-visualize antes de confirmar.
-              </p>
-            </div>
-            <QuestionImport
-              onImportComplete={(count) => toast.success(`${count} questões importadas com sucesso`)}
-            />
+            <TeacherImportTab />
           </TabsContent>
 
           <TabsContent value="my">
@@ -338,6 +332,82 @@ export default function TeacherPanel() {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// ─── Teacher Import Tab ───────────────────────────────────────────────────────
+function TeacherImportTab() {
+  const [preloadedRows, setPreloadedRows] = useState<ParsedMCQuestion[]>([]);
+  const [activeSection, setActiveSection] = useState<"file" | "ai">("file");
+
+  const handleAIExtracted = (questions: AIExtractedQuestion[]) => {
+    const mapped = questions.map((q) => ({
+      textPt: q.textPt,
+      disciplineId: q.disciplineId ?? 0,
+      subjectTag: q.disciplineSuggestion,
+      author: q.author ?? "",
+      year: q.year,
+      difficulty: q.difficulty,
+      questionType: q.questionType as ParsedMCQuestion["questionType"],
+      optA: q.optA,
+      optB: q.optB,
+      optC: q.optC,
+      optD: q.optD,
+      optE: q.optE,
+      correctOption: q.correctOption,
+      explanationPt: q.explanationPt,
+      assertion1: q.assertion1,
+      assertion2: q.assertion2,
+      _rowIndex: q._rowIndex,
+      _errors: q._errors,
+      _valid: q._valid,
+    })) as ParsedMCQuestion[];
+    setPreloadedRows(mapped);
+    setActiveSection("file");
+    toast.success(`${mapped.length} questões carregadas na pré-visualização de importação`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl font-bold mb-1">Importar Questões</h2>
+        <p className="text-sm text-muted-foreground font-sans">
+          Importe questões em lote via CSV, XLSX ou JSON — ou use a IA para extrair automaticamente de PDFs e arquivos Word.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={activeSection === "file" ? "default" : "outline"}
+          className="font-sans gap-1"
+          onClick={() => setActiveSection("file")}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          CSV / XLSX / JSON
+        </Button>
+        <Button
+          size="sm"
+          variant={activeSection === "ai" ? "default" : "outline"}
+          className="font-sans gap-1"
+          onClick={() => setActiveSection("ai")}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Extrair com IA (PDF / Word)
+        </Button>
+      </div>
+
+      {activeSection === "ai" && (
+        <AIQuestionExtractor onQuestionsExtracted={handleAIExtracted} />
+      )}
+
+      {activeSection === "file" && (
+        <QuestionImport
+          onImportComplete={(count) => toast.success(`${count} questões importadas com sucesso`)}
+          preloadedRows={preloadedRows.length > 0 ? preloadedRows : undefined}
+        />
+      )}
     </div>
   );
 }

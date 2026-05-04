@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { QuestionImport } from "@/components/QuestionImport";
+import { AIQuestionExtractor, type AIExtractedQuestion } from "@/components/AIQuestionExtractor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ import {
   Plus,
   Send,
   Shield,
+  Sparkles,
   Trash2,
   Upload,
   UserCheck,
@@ -1075,11 +1077,7 @@ export default function AdminPanel() {
           </TabsContent>
           {/* Importar tab */}
           <TabsContent value="importar">
-            <div className="mb-4">
-              <h2 className="font-serif text-xl font-bold mb-1">Importar Questões</h2>
-              <p className="text-sm text-muted-foreground font-sans">Importe questões em lote via CSV, XLSX ou JSON. Pré-visualize antes de confirmar.</p>
-            </div>
-            <QuestionImport onImportComplete={(count) => { toast.success(`${count} questões importadas`); refetchQuestions(); }} />
+            <ImportTab onImportComplete={() => refetchQuestions()} />
           </TabsContent>
 
           {/* Validação tab */}
@@ -1548,6 +1546,84 @@ export default function AdminPanel() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Import Tab (sub-component used by AdminPanel) ────────────────────────────
+function ImportTab({ onImportComplete }: { onImportComplete: () => void }) {
+  const [preloadedRows, setPreloadedRows] = useState<import("@/components/QuestionImport").ParsedMCQuestion[]>([]);
+  const [activeSection, setActiveSection] = useState<"file" | "ai">("file");
+
+  const handleAIExtracted = (questions: AIExtractedQuestion[]) => {
+    // Map AIExtractedQuestion → ParsedMCQuestion (disciplineId is required; default 0 = unset)
+    const mapped = questions.map((q) => ({
+      textPt: q.textPt,
+      disciplineId: q.disciplineId ?? 0,
+      subjectTag: q.disciplineSuggestion,
+      author: q.author ?? "",
+      year: q.year,
+      difficulty: q.difficulty,
+      questionType: q.questionType as import("@/components/QuestionImport").ParsedMCQuestion["questionType"],
+      optA: q.optA,
+      optB: q.optB,
+      optC: q.optC,
+      optD: q.optD,
+      optE: q.optE,
+      correctOption: q.correctOption,
+      explanationPt: q.explanationPt,
+      assertion1: q.assertion1,
+      assertion2: q.assertion2,
+      _rowIndex: q._rowIndex,
+      _errors: q._errors,
+      _valid: q._valid,
+    })) as import("@/components/QuestionImport").ParsedMCQuestion[];
+    setPreloadedRows(mapped);
+    setActiveSection("file");
+    toast.success(`${mapped.length} questões carregadas na pré-visualização de importação`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-xl font-bold mb-1">Importar Questões</h2>
+        <p className="text-sm text-muted-foreground font-sans">
+          Importe questões em lote via CSV, XLSX ou JSON — ou use a IA para extrair automaticamente de PDFs e arquivos Word.
+        </p>
+      </div>
+
+      {/* Section toggle */}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={activeSection === "file" ? "default" : "outline"}
+          className="font-sans gap-1"
+          onClick={() => setActiveSection("file")}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          CSV / XLSX / JSON
+        </Button>
+        <Button
+          size="sm"
+          variant={activeSection === "ai" ? "default" : "outline"}
+          className="font-sans gap-1"
+          onClick={() => setActiveSection("ai")}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Extrair com IA (PDF / Word)
+        </Button>
+      </div>
+
+      {activeSection === "ai" && (
+        <AIQuestionExtractor onQuestionsExtracted={handleAIExtracted} />
+      )}
+
+      {activeSection === "file" && (
+        <QuestionImport
+          onImportComplete={(count) => { toast.success(`${count} questões importadas`); onImportComplete(); }}
+          preloadedRows={preloadedRows.length > 0 ? preloadedRows : undefined}
+        />
+      )}
     </div>
   );
 }
