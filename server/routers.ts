@@ -16,6 +16,8 @@ import { reportsRouter } from "./routers/reports";
 import { lgpdRouter, practiceRouter } from "./routers/lgpd";
 import { paymentRouter } from "./routers/payment";
 import { notificationsRouter } from "./routers/notifications";
+import { trailsRouter } from "./routers/trails";
+import { referralsRouter } from "./routers/referrals";
 
 export const appRouter = router({
   system: systemRouter,
@@ -43,6 +45,8 @@ export const appRouter = router({
   practice: practiceRouter,
   payment: paymentRouter,
   notifications: notificationsRouter,
+  trails: trailsRouter,
+  referrals: referralsRouter,
 });
 
 export type AppRouter = typeof appRouter;

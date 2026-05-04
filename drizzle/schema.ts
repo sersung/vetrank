@@ -34,9 +34,17 @@ export const users = mysqlTable("users", {
   totalExams: int("totalExams").default(0).notNull(),
   totalQuestions: int("totalQuestions").default(0).notNull(),
   totalCorrect: int("totalCorrect").default(0).notNull(),
+  // Profile
+  cpf: varchar("cpf", { length: 14 }), // 000.000.000-00
+  phone: varchar("phone", { length: 20 }),
+  // Referral
+  referralCode: varchar("referralCode", { length: 16 }).unique(),
+  referredBy: int("referredBy"), // userId of referrer
   // LGPD
   lgpdConsentAt: timestamp("lgpdConsentAt"),
   lgpdConsentVersion: varchar("lgpdConsentVersion", { length: 16 }),
+  tosAcceptedAt: timestamp("tosAcceptedAt"),
+  tosVersion: varchar("tosVersion", { length: 16 }),
   // Timestamps
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -328,3 +336,134 @@ export const discursiveQuestions = mysqlTable("discursive_questions", {
 
 export type DiscursiveQuestion = typeof discursiveQuestions.$inferSelect;
 export type InsertDiscursiveQuestion = typeof discursiveQuestions.$inferInsert;
+
+// ─── Trails (Trilhas do Conhecimento) ────────────────────────────────────────
+export const trails = mysqlTable("trails", {
+  id: int("id").autoincrement().primaryKey(),
+  disciplineId: int("disciplineId").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  totalHours: int("totalHours").default(20).notNull(), // estimated hours
+  passingScore: int("passingScore").default(70).notNull(), // % to pass each module
+  finalExamQuestions: int("finalExamQuestions").default(30).notNull(),
+  finalExamTimeSeconds: int("finalExamTimeSeconds").default(3600).notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Trail = typeof trails.$inferSelect;
+export type InsertTrail = typeof trails.$inferInsert;
+
+// ─── Trail Modules ────────────────────────────────────────────────────────────
+export const trailModules = mysqlTable("trail_modules", {
+  id: int("id").autoincrement().primaryKey(),
+  trailId: int("trailId").notNull(),
+  order: int("order").notNull(), // 1-based sequential order
+  title: varchar("title", { length: 256 }).notNull(),
+  summary: text("summary"),
+  difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard", "mixed"]).default("mixed").notNull(),
+  questionCount: int("questionCount").default(20).notNull(),
+  minPassRate: int("minPassRate").default(70).notNull(), // % correct to pass
+  // Filter config for question selection (JSON: {disciplineId, subjectIds, difficulty, author, year})
+  questionFilter: json("questionFilter"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TrailModule = typeof trailModules.$inferSelect;
+export type InsertTrailModule = typeof trailModules.$inferInsert;
+
+// ─── Trail Module Questions (manually assigned questions) ─────────────────────
+export const trailModuleQuestions = mysqlTable("trail_module_questions", {
+  id: int("id").autoincrement().primaryKey(),
+  moduleId: int("moduleId").notNull(),
+  questionId: int("questionId").notNull(),
+  order: int("order").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TrailModuleQuestion = typeof trailModuleQuestions.$inferSelect;
+
+// ─── Trail Enrollments ────────────────────────────────────────────────────────
+export const trailEnrollments = mysqlTable("trail_enrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  trailId: int("trailId").notNull(),
+  status: mysqlEnum("status", ["enrolled", "in_progress", "completed", "failed"]).default("enrolled").notNull(),
+  currentModuleId: int("currentModuleId"),
+  finalExamScore: int("finalExamScore"),
+  finalExamPassed: boolean("finalExamPassed").default(false),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+  certificateUrl: varchar("certificateUrl", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TrailEnrollment = typeof trailEnrollments.$inferSelect;
+
+// ─── Trail Module Progress ────────────────────────────────────────────────────
+export const trailModuleProgress = mysqlTable("trail_module_progress", {
+  id: int("id").autoincrement().primaryKey(),
+  enrollmentId: int("enrollmentId").notNull(),
+  moduleId: int("moduleId").notNull(),
+  userId: int("userId").notNull(),
+  status: mysqlEnum("status", ["locked", "available", "in_progress", "passed", "failed"]).default("locked").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  bestScore: int("bestScore").default(0).notNull(), // best % correct across attempts
+  lastScore: int("lastScore").default(0).notNull(),
+  questionsAnswered: int("questionsAnswered").default(0).notNull(),
+  questionsCorrect: int("questionsCorrect").default(0).notNull(),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TrailModuleProgress = typeof trailModuleProgress.$inferSelect;
+
+// ─── Trail Module Answers ─────────────────────────────────────────────────────
+export const trailModuleAnswers = mysqlTable("trail_module_answers", {
+  id: int("id").autoincrement().primaryKey(),
+  progressId: int("progressId").notNull(),
+  userId: int("userId").notNull(),
+  moduleId: int("moduleId").notNull(),
+  questionId: int("questionId").notNull(),
+  selectedOption: varchar("selectedOption", { length: 4 }),
+  isCorrect: boolean("isCorrect").default(false),
+  attemptNumber: int("attemptNumber").default(1).notNull(),
+  answeredAt: timestamp("answeredAt").defaultNow().notNull(),
+});
+
+export type TrailModuleAnswer = typeof trailModuleAnswers.$inferSelect;
+
+// ─── Referrals ────────────────────────────────────────────────────────────────
+export const referrals = mysqlTable("referrals", {
+  id: int("id").autoincrement().primaryKey(),
+  referrerId: int("referrerId").notNull(), // user who referred
+  referredEmail: varchar("referredEmail", { length: 320 }).notNull(),
+  referredUserId: int("referredUserId"), // set when referred user registers
+  status: mysqlEnum("status", ["pending", "registered", "paid", "expired"]).default("pending").notNull(),
+  // Only counts after referred user pays (not trial)
+  paidAt: timestamp("paidAt"),
+  planPurchased: mysqlEnum("planPurchased", ["monthly", "annual"]),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = typeof referrals.$inferInsert;
+
+// ─── Referral Bonuses ─────────────────────────────────────────────────────────
+export const referralBonuses = mysqlTable("referral_bonuses", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  bonusType: mysqlEnum("bonusType", ["free_annual"]).default("free_annual").notNull(),
+  paidReferralsCount: int("paidReferralsCount").notNull(), // snapshot at time of bonus
+  activatedAt: timestamp("activatedAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt").notNull(), // +1 year from activation
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ReferralBonus = typeof referralBonuses.$inferSelect;

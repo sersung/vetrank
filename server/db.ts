@@ -623,7 +623,7 @@ export async function activateTrial(userId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   const now = new Date();
-  const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   await db.update(users).set({ plan: "trial", trialStartedAt: now, trialEndsAt: trialEnd }).where(eq(users.id, userId));
 }
 

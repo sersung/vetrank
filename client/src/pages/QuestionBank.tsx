@@ -109,14 +109,14 @@ export default function QuestionBank() {
           </p>
           <p className="text-sm text-muted-foreground font-sans mb-6">
             {language === "pt"
-              ? "Ative o trial gratuito de 30 dias ou assine um plano para ter acesso ilimitado."
-              : "Activate the free 30-day trial or subscribe to get unlimited access."}
+              ? "Ative o trial gratuito de 7 dias ou assine um plano para ter acesso ilimitado."
+              : "Activate the free 7-day trial or subscribe to get unlimited access."}
           </p>
           <div className="flex flex-col gap-3">
             <Link href="/pricing">
               <Button className="bg-primary text-primary-foreground w-full gap-2">
                 <Sparkles className="h-4 w-4" />
-                {language === "pt" ? "Ver Planos — Trial Grátis 30 dias" : "View Plans — Free 30-day Trial"}
+                {language === "pt" ? "Ver Planos — Trial Grátis 7 dias" : "View Plans — Free 7-day Trial"}
               </Button>
             </Link>
             <p className="text-xs text-muted-foreground font-sans">

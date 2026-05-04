@@ -98,7 +98,7 @@ export default function Profile() {
   const handleStartTrial = async () => {
     try {
       await startTrial.mutateAsync();
-      toast.success(language === "pt" ? "Trial premium ativado por 30 dias! 🎉" : "Premium trial activated for 30 days! 🎉");
+      toast.success(language === "pt" ? "Trial premium ativado por 7 dias! 🎉" : "Premium trial activated for 7 days! 🎉");
       utils.subscription.myPlan.invalidate();
     } catch (err: any) {
       toast.error(err.message || t("error"));
@@ -198,7 +198,7 @@ export default function Profile() {
                       disabled={startTrial.isPending}
                     >
                       {startTrial.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Crown className="h-3 w-3" />}
-                      {language === "pt" ? "Ativar Trial Grátis (30 dias)" : "Activate Free Trial (30 days)"}
+                      {language === "pt" ? "Ativar Trial Grátis (7 dias)" : "Activate Free Trial (7 days)"}
                     </Button>
                   )}
                   {planStatus.plan !== "free" && planStatus.plan !== "premium" && planStatus.plan !== "trial" && (

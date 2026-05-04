@@ -256,3 +256,48 @@
 - [x] Insert 226 new questions across all 45 subjects
 - [x] Verify all subjects have questions (0 subjects with 0 questions)
 - [x] Total: 5887 active questions
+
+## Trilhas do Conhecimento & XP/Níveis (May 2026)
+
+### Schema & DB
+- [ ] Add cpf, referralCode, referredBy columns to users table
+- [ ] Create trails table (id, disciplineId, title, description, totalHours, passingScore, active, createdBy, createdAt)
+- [ ] Create trail_modules table (id, trailId, order, title, summary, difficulty, questionCount, minPassRate, createdAt)
+- [ ] Create trail_module_questions table (id, moduleId, questionId, order)
+- [ ] Create trail_enrollments table (id, userId, trailId, status, startedAt, completedAt, certificateUrl)
+- [ ] Create trail_module_progress table (id, enrollmentId, moduleId, status, attempts, score, completedAt)
+- [ ] Create trail_module_answers table (id, progressId, questionId, selectedOption, correct, answeredAt)
+- [ ] Create referrals table (id, referrerId, referredEmail, referredUserId, status, paidAt, createdAt)
+- [ ] Run migration and apply SQL
+
+### Backend
+- [ ] Trails router: list, getById, create, update, delete (coordinator+)
+- [ ] Trail modules router: CRUD for modules, assign/remove questions
+- [ ] Trail enrollment router: enroll, getProgress, submitModuleAnswers, completeModule, getFinalExam, submitFinalExam
+- [ ] Certificate generation: PDF with student name, CPF, trail name, hours, dates, CEO, CNPJ
+- [ ] Referral router: getReferralCode, getReferrals, checkBonusEligibility, activateBonus
+- [ ] XP system: award XP per correct answer (not just per exam), update level in real-time
+- [ ] Level thresholds: exponential XP curve (10 levels)
+
+### Student UI
+- [ ] Trails menu page (/trails): list disciplines with trails, status badges, progress bars
+- [ ] Trail detail page (/trails/:id): intro, sequential modules, progress, final exam, certificate
+- [ ] Module quiz view: show questions one by one, submit, show score, pass/fail
+- [ ] Final exam view: timed, mixed questions from all modules
+- [ ] Certificate page: display and download PDF certificate
+- [ ] Profile page: show current level with XP bar, next level threshold, XP history
+- [ ] Referral page (/referral): unique link, referral count, bonus status
+
+### Coordinator UI
+- [ ] Coordinator trail panel: create/edit/delete trails per discipline
+- [ ] Module editor: add/remove/reorder modules, set question count and pass rate
+- [ ] Question selector: filter questions by discipline/subject/difficulty and assign to module
+- [ ] Trail preview: see student view of trail
+
+## Terms & Registration Updates (May 2026)
+- [ ] Update trial period from 30 days to 7 days
+- [ ] Add CPF field to user registration/profile
+- [ ] Terms of Service page: CSVET CNPJ 32.645.724/0001-89, 7-day trial, no-refund after trial, MercadoPago notice
+- [ ] Privacy Policy: LGPD compliant with CSVET data
+- [ ] Consent modal: require acceptance of ToS before activating trial
+- [ ] Footer: CNPJ, email adm@csvet.com.br, support email calefi@csvet.com.br

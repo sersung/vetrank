@@ -7,11 +7,14 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Check, Crown, Loader2, Sparkles, Zap, CreditCard, Shield } from "lucide-react";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "wouter";
 
 export default function Pricing() {
   const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<"monthly" | "annual" | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const { data: planStatus } = trpc.payment.myPlan.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -22,9 +25,13 @@ export default function Pricing() {
 
   const handleStartTrial = async () => {
     if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
+    if (!termsAccepted) {
+      toast.error(language === "pt" ? "Você precisa aceitar os Termos de Uso para ativar o trial." : "You must accept the Terms of Use to activate the trial.");
+      return;
+    }
     try {
       await startTrial.mutateAsync();
-      toast.success(language === "pt" ? "Trial premium ativado por 30 dias! 🎉" : "Premium trial activated for 30 days! 🎉");
+      toast.success(language === "pt" ? "Trial premium ativado por 7 dias! 🎉" : "Premium trial activated for 7 days! 🎉");
       utils.payment.myPlan.invalidate();
     } catch (err: any) {
       toast.error(err.message || (language === "pt" ? "Erro ao ativar trial." : "Error activating trial."));
@@ -81,8 +88,8 @@ export default function Pricing() {
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             {language === "pt"
-              ? "Comece gratuitamente e faça upgrade quando estiver pronto. Trial premium de 30 dias sem cartão de crédito."
-              : "Start for free and upgrade when you're ready. 30-day premium trial with no credit card required."}
+              ? "Comece gratuitamente e faça upgrade quando estiver pronto. Trial premium de 7 dias sem cartão de crédito."
+              : "Start for free and upgrade when you're ready. 7-day premium trial with no credit card required."}
           </p>
         </div>
 
@@ -156,14 +163,27 @@ export default function Pricing() {
               <div className="space-y-3">
                 {!hasUsedTrial && (
                   <>
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <Checkbox
+                        id="terms-accept-plan"
+                        checked={termsAccepted}
+                        onCheckedChange={(v) => setTermsAccepted(!!v)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <label htmlFor="terms-accept-plan" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                        {language === "pt"
+                          ? <span>Li e aceito os <Link href="/terms" className="text-primary hover:underline">Termos de Uso</Link>. Estou ciente do período de 7 dias e da política de não reembolso.</span>
+                          : <span>I accept the <Link href="/terms" className="text-primary hover:underline">Terms of Use</Link>. I understand the 7-day trial and no-refund policy.</span>}
+                      </label>
+                    </div>
                     <Button variant="outline"
                       className="w-full gap-2 border-primary/40 text-primary hover:bg-primary/10 bg-transparent"
                       onClick={handleStartTrial}
-                      disabled={startTrial.isPending || isTrial}>
+                      disabled={startTrial.isPending || isTrial || !termsAccepted}>
                       {startTrial.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
                       {isTrial
                         ? (language === "pt" ? "Trial Ativo" : "Trial Active")
-                        : (language === "pt" ? "Iniciar Trial Grátis (30 dias)" : "Start Free Trial (30 days)")}
+                        : (language === "pt" ? "Iniciar Trial Grátis (7 dias)" : "Start Free Trial (7 days)")}
                     </Button>
                     <p className="text-center text-xs text-muted-foreground">✓ {language === "pt" ? "Sem cartão de crédito" : "No credit card required"}</p>
                     <div className="flex items-center gap-2 text-muted-foreground/50 text-xs justify-center">
@@ -233,14 +253,27 @@ export default function Pricing() {
               <div className="space-y-3">
                 {!hasUsedTrial && (
                   <>
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <Checkbox
+                        id="terms-accept-plan"
+                        checked={termsAccepted}
+                        onCheckedChange={(v) => setTermsAccepted(!!v)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <label htmlFor="terms-accept-plan" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                        {language === "pt"
+                          ? <span>Li e aceito os <Link href="/terms" className="text-primary hover:underline">Termos de Uso</Link>. Estou ciente do período de 7 dias e da política de não reembolso.</span>
+                          : <span>I accept the <Link href="/terms" className="text-primary hover:underline">Terms of Use</Link>. I understand the 7-day trial and no-refund policy.</span>}
+                      </label>
+                    </div>
                     <Button variant="outline"
                       className="w-full gap-2 border-primary/40 text-primary hover:bg-primary/10 bg-transparent"
                       onClick={handleStartTrial}
-                      disabled={startTrial.isPending || isTrial}>
+                      disabled={startTrial.isPending || isTrial || !termsAccepted}>
                       {startTrial.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
                       {isTrial
                         ? (language === "pt" ? "Trial Ativo" : "Trial Active")
-                        : (language === "pt" ? "Iniciar Trial Grátis (30 dias)" : "Start Free Trial (30 days)")}
+                        : (language === "pt" ? "Iniciar Trial Grátis (7 dias)" : "Start Free Trial (7 days)")}
                     </Button>
                     <p className="text-center text-xs text-muted-foreground">✓ {language === "pt" ? "Sem cartão de crédito" : "No credit card required"}</p>
                     <div className="flex items-center gap-2 text-muted-foreground/50 text-xs justify-center">

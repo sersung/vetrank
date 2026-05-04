@@ -30,6 +30,8 @@ import {
   Megaphone,
   ALargeSmall,
   PenLine,
+  Gift,
+  Route,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -66,6 +68,7 @@ export default function Navbar() {
     { href: "/exam", label: t("nav_exam"), icon: FlaskConical },
     { href: "/leaderboard", label: t("nav_leaderboard"), icon: Trophy },
     { href: "/discursive", label: "Discursivas", icon: PenLine },
+    { href: "/trails", label: "Trilhas", icon: Route },
     { href: "/announcements", label: "Mural", icon: Megaphone },
     { href: "/pricing", label: t("nav_pricing"), icon: Crown },
   ];
@@ -202,6 +205,12 @@ export default function Navbar() {
                     <Link href="/profile" className="flex items-center gap-2">
                       <User className="h-4 w-4" />
                       {t("nav_profile")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/referrals" className="flex items-center gap-2">
+                      <Gift className="h-4 w-4" />
+                      Indicações
                     </Link>
                   </DropdownMenuItem>
                   {roleLinks.map((link) => (

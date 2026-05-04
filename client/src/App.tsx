@@ -24,6 +24,9 @@ import LGPDConsentModal from "./components/LGPDConsentModal";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import DiscursiveBank from "./pages/DiscursiveBank";
+import Trails from "./pages/Trails";
+import TrailDetail from "./pages/TrailDetail";
+import Referrals from "./pages/Referrals";
 
 function Router() {
   return (
@@ -46,6 +49,9 @@ function Router() {
       <Route path="/payment/failure" component={PaymentFailure} />
       <Route path="/payment/pending" component={PaymentFailure} />
       <Route path="/discursive" component={DiscursiveBank} />
+      <Route path="/trails" component={Trails} />
+      <Route path="/trails/:id" component={TrailDetail} />
+      <Route path="/referrals" component={Referrals} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

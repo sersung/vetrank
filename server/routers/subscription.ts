@@ -22,6 +22,6 @@ export const subscriptionRouter = router({
     }
 
     await activateTrial(ctx.user.id);
-    return { success: true, message: "30-day premium trial activated!" };
+    return { success: true, message: "7-day premium trial activated!" };
   }),
 });
