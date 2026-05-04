@@ -102,9 +102,12 @@ export default function AdminPanel() {
   const [newQuestion, setNewQuestion] = useState({
     textPt: "", textEn: "", disciplineId: "", subjectId: "",
     difficulty: "medium", year: "", isPremium: false,
+    questionType: "multiple_choice" as "multiple_choice" | "assertion_reason" | "discursive",
+    subjectTag: "", author: "",
     optA: "", optB: "", optC: "", optD: "", optE: "",
     optAEn: "", optBEn: "", optCEn: "", optDEn: "", optEEn: "",
     correctOption: "A", explanationPt: "", explanationEn: "",
+    assertion1: "", assertion2: "",
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -226,18 +229,32 @@ export default function AdminPanel() {
   };
 
   const handleAddQuestion = async () => {
-    if (!newQuestion.textPt || !newQuestion.disciplineId || !newQuestion.optA || !newQuestion.optB || !newQuestion.optC || !newQuestion.optD) {
+    if (!newQuestion.textPt || !newQuestion.disciplineId) {
       toast.error(language === "pt" ? "Preencha os campos obrigatórios" : "Fill required fields");
       return;
     }
+    // For multiple_choice and assertion_reason, options are required
+    if (newQuestion.questionType !== "discursive" && (!newQuestion.optA || !newQuestion.optB)) {
+      toast.error(language === "pt" ? "Preencha pelo menos as opções A e B" : "Fill at least options A and B");
+      return;
+    }
     try {
-      const options = [
-        { id: "A", textPt: newQuestion.optA, textEn: newQuestion.optAEn || newQuestion.optA },
-        { id: "B", textPt: newQuestion.optB, textEn: newQuestion.optBEn || newQuestion.optB },
-        { id: "C", textPt: newQuestion.optC, textEn: newQuestion.optCEn || newQuestion.optC },
-        { id: "D", textPt: newQuestion.optD, textEn: newQuestion.optDEn || newQuestion.optD },
-        ...(newQuestion.optE ? [{ id: "E", textPt: newQuestion.optE, textEn: newQuestion.optEEn || newQuestion.optE }] : []),
+      // For assertion_reason, use fixed standard options
+      const assertionOptions = [
+        { id: "A", textPt: "As duas afirmativas são verdadeiras e a segunda justifica a primeira.", textEn: "Both statements are true and the second justifies the first." },
+        { id: "B", textPt: "As duas afirmativas são verdadeiras, mas a segunda não justifica a primeira.", textEn: "Both statements are true, but the second does not justify the first." },
+        { id: "C", textPt: "A primeira afirmativa é verdadeira e a segunda é falsa.", textEn: "The first statement is true and the second is false." },
+        { id: "D", textPt: "A primeira afirmativa é falsa e a segunda é verdadeira.", textEn: "The first statement is false and the second is true." },
+        { id: "E", textPt: "As duas afirmativas são falsas.", textEn: "Both statements are false." },
       ];
+      const options = newQuestion.questionType === "assertion_reason" ? assertionOptions :
+        newQuestion.questionType === "discursive" ? [] : [
+          { id: "A", textPt: newQuestion.optA, textEn: newQuestion.optAEn || newQuestion.optA },
+          { id: "B", textPt: newQuestion.optB, textEn: newQuestion.optBEn || newQuestion.optB },
+          { id: "C", textPt: newQuestion.optC, textEn: newQuestion.optCEn || newQuestion.optC },
+          { id: "D", textPt: newQuestion.optD, textEn: newQuestion.optDEn || newQuestion.optD },
+          ...(newQuestion.optE ? [{ id: "E", textPt: newQuestion.optE, textEn: newQuestion.optEEn || newQuestion.optE }] : []),
+        ];
       await createQuestion.mutateAsync({
         textPt: newQuestion.textPt,
         textEn: newQuestion.textEn || undefined,
@@ -246,10 +263,15 @@ export default function AdminPanel() {
         difficulty: newQuestion.difficulty as "easy" | "medium" | "hard",
         year: newQuestion.year ? parseInt(newQuestion.year) : undefined,
         isPremium: newQuestion.isPremium,
+        questionType: newQuestion.questionType,
+        subjectTag: newQuestion.subjectTag || undefined,
+        author: newQuestion.author || undefined,
         options,
-        correctOption: newQuestion.correctOption,
+        correctOption: newQuestion.questionType === "discursive" ? "N/A" : newQuestion.correctOption,
         explanationPt: newQuestion.explanationPt || undefined,
         explanationEn: newQuestion.explanationEn || undefined,
+        assertion1: newQuestion.questionType === "assertion_reason" ? newQuestion.assertion1 || undefined : undefined,
+        assertion2: newQuestion.questionType === "assertion_reason" ? newQuestion.assertion2 || undefined : undefined,
       });
       toast.success(language === "pt" ? "Questão criada!" : "Question created!");
       setShowAddQuestion(false);
@@ -1063,8 +1085,20 @@ export default function AdminPanel() {
             <DialogTitle className="font-serif">{language === "pt" ? "Nova Questão" : "New Question"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Question Type */}
+            <Select value={newQuestion.questionType} onValueChange={(v) => setNewQuestion((p) => ({ ...p, questionType: v as any }))}>
+              <SelectTrigger className="bg-background font-sans">
+                <SelectValue placeholder={language === "pt" ? "Tipo de Questão" : "Question Type"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="multiple_choice">{language === "pt" ? "Múltipla Escolha" : "Multiple Choice"}</SelectItem>
+                <SelectItem value="assertion_reason">{language === "pt" ? "Asserció-Razão" : "Assertion-Reason"}</SelectItem>
+                <SelectItem value="discursive">{language === "pt" ? "Discursiva" : "Discursive"}</SelectItem>
+              </SelectContent>
+            </Select>
+
             <textarea
-              placeholder="Texto PT *"
+              placeholder={newQuestion.questionType === "assertion_reason" ? (language === "pt" ? "Enunciado / Contexto PT *" : "Statement / Context PT *") : "Texto PT *"}
               value={newQuestion.textPt}
               onChange={(e) => setNewQuestion((p) => ({ ...p, textPt: e.target.value }))}
               className="w-full h-20 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
@@ -1073,8 +1107,36 @@ export default function AdminPanel() {
               placeholder="Text EN"
               value={newQuestion.textEn}
               onChange={(e) => setNewQuestion((p) => ({ ...p, textEn: e.target.value }))}
-              className="w-full h-20 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
+
+            {/* Assertion-Reason: Afirmativas I e II */}
+            {newQuestion.questionType === "assertion_reason" && (
+              <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <p className="text-xs font-sans font-medium text-primary">{language === "pt" ? "Afirmativas (Asserció-Razão)" : "Assertions (Assertion-Reason)"}</p>
+                <textarea
+                  placeholder={language === "pt" ? "Afirmativa I (Asserció) *" : "Assertion I *"}
+                  value={newQuestion.assertion1}
+                  onChange={(e) => setNewQuestion((p) => ({ ...p, assertion1: e.target.value }))}
+                  className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <textarea
+                  placeholder={language === "pt" ? "Afirmativa II (Razão) *" : "Assertion II (Reason) *"}
+                  value={newQuestion.assertion2}
+                  onChange={(e) => setNewQuestion((p) => ({ ...p, assertion2: e.target.value }))}
+                  className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <div className="p-2 bg-background rounded border border-border/30 text-xs text-muted-foreground font-sans space-y-1">
+                  <p className="font-medium">{language === "pt" ? "Opções fixas (padrão ENADE):" : "Fixed options (ENADE standard):"}</p>
+                  <p>A) Ambas verdadeiras, II justifica I</p>
+                  <p>B) Ambas verdadeiras, II não justifica I</p>
+                  <p>C) I verdadeira, II falsa</p>
+                  <p>D) I falsa, II verdadeira</p>
+                  <p>E) Ambas falsas</p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <Select value={newQuestion.disciplineId} onValueChange={(v) => setNewQuestion((p) => ({ ...p, disciplineId: v }))}>
                 <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={t("exam_discipline")} /></SelectTrigger>
@@ -1091,28 +1153,43 @@ export default function AdminPanel() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Subject tag + Author */}
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder="Opção A PT *" value={newQuestion.optA} onChange={(e) => setNewQuestion((p) => ({ ...p, optA: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Option A EN" value={newQuestion.optAEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optAEn: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Opção B PT *" value={newQuestion.optB} onChange={(e) => setNewQuestion((p) => ({ ...p, optB: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Option B EN" value={newQuestion.optBEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optBEn: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Opção C PT *" value={newQuestion.optC} onChange={(e) => setNewQuestion((p) => ({ ...p, optC: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Option C EN" value={newQuestion.optCEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optCEn: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Opção D PT *" value={newQuestion.optD} onChange={(e) => setNewQuestion((p) => ({ ...p, optD: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Option D EN" value={newQuestion.optDEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optDEn: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Opção E PT (opcional)" value={newQuestion.optE} onChange={(e) => setNewQuestion((p) => ({ ...p, optE: e.target.value }))} className="font-sans bg-background" />
-              <Input placeholder="Option E EN" value={newQuestion.optEEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optEEn: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder={language === "pt" ? "Tag de assunto (ex: Parasitologia)" : "Subject tag (e.g. Parasitology)"} value={newQuestion.subjectTag} onChange={(e) => setNewQuestion((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder={language === "pt" ? "Autor / Banca" : "Author / Board"} value={newQuestion.author} onChange={(e) => setNewQuestion((p) => ({ ...p, author: e.target.value }))} className="font-sans bg-background" />
             </div>
-            <Select value={newQuestion.correctOption} onValueChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}>
-              <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={language === "pt" ? "Resposta Correta" : "Correct Answer"} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="A">A</SelectItem>
-                <SelectItem value="B">B</SelectItem>
-                <SelectItem value="C">C</SelectItem>
-                <SelectItem value="D">D</SelectItem>
-                <SelectItem value="E">E</SelectItem>
-              </SelectContent>
-            </Select>
+
+            {/* Multiple choice options */}
+            {newQuestion.questionType === "multiple_choice" && (
+              <div className="grid grid-cols-2 gap-3">
+                <Input placeholder="Opção A PT *" value={newQuestion.optA} onChange={(e) => setNewQuestion((p) => ({ ...p, optA: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Option A EN" value={newQuestion.optAEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optAEn: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Opção B PT *" value={newQuestion.optB} onChange={(e) => setNewQuestion((p) => ({ ...p, optB: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Option B EN" value={newQuestion.optBEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optBEn: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Opção C PT *" value={newQuestion.optC} onChange={(e) => setNewQuestion((p) => ({ ...p, optC: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Option C EN" value={newQuestion.optCEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optCEn: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Opção D PT *" value={newQuestion.optD} onChange={(e) => setNewQuestion((p) => ({ ...p, optD: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Option D EN" value={newQuestion.optDEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optDEn: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Opção E PT (opcional)" value={newQuestion.optE} onChange={(e) => setNewQuestion((p) => ({ ...p, optE: e.target.value }))} className="font-sans bg-background" />
+                <Input placeholder="Option E EN" value={newQuestion.optEEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optEEn: e.target.value }))} className="font-sans bg-background" />
+              </div>
+            )}
+
+            {/* Correct option (for multiple_choice and assertion_reason) */}
+            {newQuestion.questionType !== "discursive" && (
+              <Select value={newQuestion.correctOption} onValueChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}>
+                <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={language === "pt" ? "Resposta Correta" : "Correct Answer"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="C">C</SelectItem>
+                  <SelectItem value="D">D</SelectItem>
+                  <SelectItem value="E">E</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
             <textarea
               placeholder={language === "pt" ? "Explicação PT" : "Explanation PT"}
               value={newQuestion.explanationPt}

@@ -110,7 +110,7 @@ async function main() {
         await conn.execute(
           `UPDATE questions SET 
             textPt = ?, textEn = ?, options = ?, correctOption = ?,
-            explanationPt = ?, explanationEn = ?, questionType = 'enade'
+            explanationPt = ?, explanationEn = ?, questionType = 'multiple_choice'
            WHERE id = ?`,
           [q.textPt, q.textEn, optionsJson, q.correctAnswer, q.explanationPt, q.explanationEn, q.id]
         );

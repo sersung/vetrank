@@ -144,8 +144,13 @@ export const questions = mysqlTable("questions", {
   createdBy: int("createdBy"), // teacher or admin user id
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
   year: int("year"),
+  // Question type (format)
+  questionType: mysqlEnum("questionType", ["multiple_choice", "assertion_reason", "discursive"]).default("multiple_choice").notNull(),
   // Question model/template
   questionModel: mysqlEnum("questionModel", ["standard", "enade", "true_false", "assertion_reason"]).default("standard").notNull(),
+  // Subject tag and author
+  subjectTag: varchar("subjectTag", { length: 128 }),
+  author: varchar("author", { length: 256 }),
   // Content (bilingual)
   textPt: text("textPt").notNull(),
   textEn: text("textEn"),
@@ -156,6 +161,9 @@ export const questions = mysqlTable("questions", {
   correctOption: varchar("correctOption", { length: 4 }).notNull(),
   explanationPt: text("explanationPt"),
   explanationEn: text("explanationEn"),
+  // Assertion-reason specific fields
+  assertion1: text("assertion1"),
+  assertion2: text("assertion2"),
   // Validation
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("approved").notNull(),
   validatedBy: int("validatedBy"),
@@ -282,3 +290,26 @@ export const monthlyXp = mysqlTable("monthly_xp", {
   xp: int("xp").default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+// ─── Discursive Questions ───────────────────────────────────────────────────────────────
+export const discursiveQuestions = mysqlTable("discursive_questions", {
+  id: int("id").autoincrement().primaryKey(),
+  disciplineId: int("disciplineId").notNull(),
+  subjectId: int("subjectId"),
+  subjectTag: varchar("subjectTag", { length: 128 }),
+  author: varchar("author", { length: 256 }),
+  difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
+  year: int("year"),
+  textPt: text("textPt").notNull(),
+  textEn: text("textEn"),
+  expectedAnswerPt: text("expectedAnswerPt").notNull(),
+  expectedAnswerEn: text("expectedAnswerEn"),
+  active: boolean("active").default(true).notNull(),
+  isPremium: boolean("isPremium").default(true).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DiscursiveQuestion = typeof discursiveQuestions.$inferSelect;
+export type InsertDiscursiveQuestion = typeof discursiveQuestions.$inferInsert;

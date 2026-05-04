@@ -53,6 +53,7 @@ export default function Dashboard() {
 
   const overall = perf?.overall;
   const byDiscipline = perf?.byDiscipline ?? [];
+  const bySubject = perf?.bySubject ?? [];
   const recentExams = perf?.recentExams ?? [];
   const xpHistory = perf?.xpHistory ?? [];
 
@@ -249,6 +250,40 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Subject Performance */}
+        {bySubject.length > 0 && (
+          <Card className="border-border/50 mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-cyan-400" />
+                Desempenho por Assunto
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {bySubject.map((s: any, i: number) => (
+                  <div key={s.subjectId ?? i} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-medium truncate">{s.subjectName}</span>
+                        <span className={`text-xs font-bold ml-2 shrink-0 ${
+                          Number(s.accuracy) >= 70 ? "text-green-400" :
+                          Number(s.accuracy) >= 50 ? "text-yellow-400" : "text-red-400"
+                        }`}>{s.accuracy}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Progress value={Number(s.accuracy)} className="h-1.5 flex-1" />
+                        <span className="text-xs text-muted-foreground shrink-0">{s.total}q</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{s.disciplineName}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Recent Exams */}
         <Card className="border-border/50">

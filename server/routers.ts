@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { questionsRouter } from "./routers/questions";
+import { questionsRouter, discursiveRouter } from "./routers/questions";
 import { examsRouter } from "./routers/exams";
 import { gamificationRouter } from "./routers/gamification";
 import { leaderboardRouter } from "./routers/leaderboard";
@@ -28,6 +28,7 @@ export const appRouter = router({
     }),
   }),
   questions: questionsRouter,
+  discursive: discursiveRouter,
   exams: examsRouter,
   gamification: gamificationRouter,
   leaderboard: leaderboardRouter,

@@ -29,6 +29,7 @@ import {
   Dumbbell,
   Megaphone,
   ALargeSmall,
+  PenLine,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -64,6 +65,7 @@ export default function Navbar() {
     { href: "/practice", label: "Praticar", icon: Dumbbell },
     { href: "/exam", label: t("nav_exam"), icon: FlaskConical },
     { href: "/leaderboard", label: t("nav_leaderboard"), icon: Trophy },
+    { href: "/discursive", label: "Discursivas", icon: PenLine },
     { href: "/announcements", label: "Mural", icon: Megaphone },
     { href: "/pricing", label: t("nav_pricing"), icon: Crown },
   ];

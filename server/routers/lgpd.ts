@@ -167,6 +167,22 @@ export const practiceRouter = router({
       LIMIT 10
     `) as any;
 
+    // Per-subject accuracy from exams
+    const [bySubject] = await db.execute(`
+      SELECT s.namePt as subjectName, s.id as subjectId, d.namePt as disciplineName, d.id as disciplineId,
+        COUNT(ea.id) as total,
+        SUM(ea.isCorrect) as correct,
+        CASE WHEN COUNT(ea.id) > 0 THEN ROUND(SUM(ea.isCorrect) * 100.0 / COUNT(ea.id), 1) ELSE 0 END as accuracy
+      FROM exam_answers ea
+      JOIN exams e ON ea.examId = e.id
+      JOIN questions q ON ea.questionId = q.id
+      JOIN subjects s ON q.subjectId = s.id
+      JOIN disciplines d ON q.disciplineId = d.id
+      WHERE e.userId = ${ctx.user.id} AND e.status = 'completed' AND q.subjectId IS NOT NULL
+      GROUP BY s.id, s.namePt, d.id, d.namePt
+      ORDER BY accuracy ASC
+    `) as any;
+
     // XP history (last 30 days)
     const [xpHistory] = await db.execute(`
       SELECT DATE(createdAt) as date, SUM(amount) as xp
@@ -179,6 +195,7 @@ export const practiceRouter = router({
     return {
       overall: (overall as any[])[0],
       byDiscipline: byDiscipline as any[],
+      bySubject: bySubject as any[],
       recentExams: recentExams as any[],
       xpHistory: xpHistory as any[],
     };

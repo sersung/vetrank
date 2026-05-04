@@ -3,13 +3,16 @@ import { drizzle } from "drizzle-orm/mysql2";
 import {
   Badge,
   Discipline,
+  DiscursiveQuestion,
   Exam,
+  InsertDiscursiveQuestion,
   InsertQuestion,
   InsertUser,
   Question,
   Subject,
   User,
   badges,
+  discursiveQuestions,
   disciplines,
   examAnswers,
   exams,
@@ -623,7 +626,66 @@ export async function getUserPlanStatus(user: User): Promise<{
   return { plan: "free", isActive: true, canAccessPremium: false };
 }
 
-// ─── Seed badges ──────────────────────────────────────────────────────────────
+// ─── Discursive Questions ───────────────────────────────────────────────────────────────
+export async function getDiscursiveQuestions(filters: {
+  disciplineId?: number;
+  subjectId?: number;
+  difficulty?: string;
+  search?: string;
+  isPremium?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<{ questions: DiscursiveQuestion[]; total: number }> {
+  const db = await getDb();
+  if (!db) return { questions: [], total: 0 };
+
+  const conditions = [eq(discursiveQuestions.active, true)];
+  if (filters.disciplineId) conditions.push(eq(discursiveQuestions.disciplineId, filters.disciplineId));
+  if (filters.subjectId) conditions.push(eq(discursiveQuestions.subjectId, filters.subjectId));
+  if (filters.difficulty) conditions.push(eq(discursiveQuestions.difficulty, filters.difficulty as "easy" | "medium" | "hard"));
+  if (filters.isPremium !== undefined) conditions.push(eq(discursiveQuestions.isPremium, filters.isPremium));
+  if (filters.search) conditions.push(like(discursiveQuestions.textPt, `%${filters.search}%`));
+
+  const where = and(...conditions);
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+  const offset = (page - 1) * limit;
+
+  const [rows, countRows] = await Promise.all([
+    db.select().from(discursiveQuestions).where(where).orderBy(desc(discursiveQuestions.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(discursiveQuestions).where(where),
+  ]);
+
+  return { questions: rows, total: Number(countRows[0]?.count ?? 0) };
+}
+
+export async function getDiscursiveQuestionById(id: number): Promise<DiscursiveQuestion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(discursiveQuestions).where(eq(discursiveQuestions.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createDiscursiveQuestion(data: InsertDiscursiveQuestion): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const result = await db.insert(discursiveQuestions).values(data);
+  return (result[0] as { insertId: number }).insertId;
+}
+
+export async function updateDiscursiveQuestion(id: number, data: Partial<InsertDiscursiveQuestion>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(discursiveQuestions).set(data).where(eq(discursiveQuestions.id, id));
+}
+
+export async function deleteDiscursiveQuestion(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(discursiveQuestions).set({ active: false }).where(eq(discursiveQuestions.id, id));
+}
+
+// ─── Seed badges ────────────────────────────────────────────────────────────────
 export async function seedBadges(): Promise<void> {
   const db = await getDb();
   if (!db) return;

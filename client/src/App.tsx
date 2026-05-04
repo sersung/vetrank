@@ -23,6 +23,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import LGPDConsentModal from "./components/LGPDConsentModal";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
+import DiscursiveBank from "./pages/DiscursiveBank";
 
 function Router() {
   return (
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/failure" component={PaymentFailure} />
       <Route path="/payment/pending" component={PaymentFailure} />
+      <Route path="/discursive" component={DiscursiveBank} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -175,3 +175,35 @@
 - [x] Support JSON format with all 5 options (A-E), discipline, subject, difficulty, year
 - [x] Show upload preview table before confirming import
 - [x] Show per-row validation errors before import
+
+## Curriculum & Question Format Updates (May 2026)
+
+### Schema & DB
+- [x] Add subjectTag (text) and author (text) columns to questions table
+- [x] Add questionType enum column: multiple_choice | assertion_reason | discursive
+- [x] Add assertion1 and assertion2 text columns (for assertion_reason type)
+- [x] Create discursive_questions table (id, disciplineId, subjectId, subjectTag, author, textPt, textEn, expectedAnswerPt, expectedAnswerEn, difficulty, year, active, createdAt)
+- [x] Run migration and apply SQL
+
+### Backend
+- [x] Update questions router: filter/create/edit with subjectTag, author, questionType, assertion1, assertion2
+- [x] Add discursive questions router (CRUD: list, create, update, delete)
+- [x] Add bySubject query to performanceDashboard
+
+### Admin Panel
+- [x] Question creation form: type selector (multiple_choice / assertion_reason / discursive)
+- [x] Assertion-reason form: fixed A-E options shown as read-only preview, editable assertion1 and assertion2 fields
+- [x] subjectTag and author inputs added to question creation form
+- [x] Correct option selector hidden for discursive type
+- [x] Multiple choice options hidden for assertion_reason and discursive types
+
+### Student Dashboard
+- [x] Add bySubject data to performanceDashboard backend
+- [x] Add "Desempenho por Assunto" section to Dashboard page with progress bars and color coding
+
+### Discursive Bank
+- [x] Discursive question bank page (/discursive): list with filters (discipline, difficulty, search)
+- [x] Expand/collapse question detail with expected answer (premium/subscriber only)
+- [x] Admin CRUD for discursive questions inline in the page
+- [x] Add /discursive route to App.tsx
+- [x] Add "Discursivas" link to Navbar (PenLine icon)
