@@ -145,3 +145,15 @@
 - [ ] Frontend: checkout button on Pricing page
 - [ ] Frontend: success and failure/pending pages
 - [ ] Frontend: subscription status and cancel UI in Profile page
+
+## Access Control & New Features (May 2026)
+- [ ] Add option E (optionE_pt, optionE_en) to questions schema and migrate DB
+- [ ] Update all question forms (Admin, Teacher) to show/handle option E
+- [ ] Update exam engine and practice mode to render option E
+- [ ] Gate Question Bank: free users see paywall, only premium/trial can access
+- [ ] Gate Leaderboard: free users see paywall, only premium/trial can access
+- [ ] Set ascalefi@gmail.com as admin (role=admin) in DB via script
+- [ ] Add custom admin login with email ascalefi@gmail.com + password Adminvetrank123
+- [ ] Build customer info panel in Admin: list all users, plan, XP, last login, email
+- [ ] Add support email calefi@csvet.com.br to footer, contact page, and error pages
+- [ ] Update LGPD/Terms pages with support email

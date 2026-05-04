@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/select";
 import { useLanguage, useT } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
-import { BookOpen, ChevronLeft, ChevronRight, Crown, Lock, Search, SlidersHorizontal, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Crown, Lock, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const DIFFICULTY_COLORS = {
   easy: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -35,6 +35,9 @@ export default function QuestionBank() {
   const [year, setYear] = useState<string>("");
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data: planData } = trpc.payment.myPlan.useQuery(undefined, { enabled: isAuthenticated });
+  const hasAccess = isAuthenticated && (planData?.hasAccess || planData?.plan === "trial" || planData?.plan === "premium");
 
   const { data: disciplines } = trpc.questions.disciplines.useQuery();
   const { data: subjects } = trpc.questions.subjects.useQuery(
@@ -64,6 +67,65 @@ export default function QuestionBank() {
   };
 
   const hasFilters = search || disciplineId || subjectId || difficulty || year;
+
+  // Paywall: not logged in or free plan
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="font-serif text-2xl font-bold mb-3">{language === "pt" ? "Acesso Exclusivo" : "Exclusive Access"}</h2>
+          <p className="text-muted-foreground font-sans mb-6">
+            {language === "pt"
+              ? "Faça login para acessar o banco de questões completo com mais de 5.661 questões."
+              : "Log in to access the full question bank with over 5,661 questions."}
+          </p>
+          <Button className="bg-primary text-primary-foreground w-full mb-3" onClick={() => window.location.href = getLoginUrl()}>
+            {t("nav_login")}
+          </Button>
+          <Link href="/pricing"><Button variant="outline" className="w-full font-sans">{t("nav_pricing")}</Button></Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated && !hasAccess && planData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto px-6">
+          <div className="w-16 h-16 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mx-auto mb-6">
+            <Crown className="h-8 w-8 text-yellow-400" />
+          </div>
+          <h2 className="font-serif text-2xl font-bold mb-3">
+            {language === "pt" ? "Recurso Premium" : "Premium Feature"}
+          </h2>
+          <p className="text-muted-foreground font-sans mb-2">
+            {language === "pt"
+              ? "O Banco de Questões completo é exclusivo para assinantes Premium."
+              : "The full Question Bank is exclusive to Premium subscribers."}
+          </p>
+          <p className="text-sm text-muted-foreground font-sans mb-6">
+            {language === "pt"
+              ? "Ative o trial gratuito de 30 dias ou assine um plano para ter acesso ilimitado."
+              : "Activate the free 30-day trial or subscribe to get unlimited access."}
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link href="/pricing">
+              <Button className="bg-primary text-primary-foreground w-full gap-2">
+                <Sparkles className="h-4 w-4" />
+                {language === "pt" ? "Ver Planos — Trial Grátis 30 dias" : "View Plans — Free 30-day Trial"}
+              </Button>
+            </Link>
+            <p className="text-xs text-muted-foreground font-sans">
+              {language === "pt" ? "Sem cartão de crédito necessário" : "No credit card required"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

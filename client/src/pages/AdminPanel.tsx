@@ -22,13 +22,17 @@ import { toast } from "sonner";
 import {
   BookOpen,
   Brain,
+  Calendar,
+  Crown,
   Database,
   Edit,
   Loader2,
+  Mail,
   Plus,
   Shield,
   Trash2,
   Upload,
+  UserCheck,
   Users,
   Zap,
 } from "lucide-react";
@@ -45,6 +49,18 @@ export default function AdminPanel() {
   const { data: disciplines, refetch: refetchDisciplines } = trpc.admin.disciplines.useQuery(undefined, { enabled: user?.role === "admin" });
   const { data: subjects, refetch: refetchSubjects } = trpc.admin.subjects.useQuery(undefined, { enabled: user?.role === "admin" });
   const { data: questions, refetch: refetchQuestions } = trpc.questions.list.useQuery({ page: 1, limit: 50 }, { enabled: user?.role === "admin" });
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerPlanFilter, setCustomerPlanFilter] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<number | null>(null);
+  const { data: customers } = trpc.admin.customers.useQuery(
+    { search: customerSearch || undefined, plan: customerPlanFilter as any || undefined, page: 1, limit: 50 },
+    { enabled: user?.role === "admin" }
+  );
+  const { data: customerDetail } = trpc.admin.customerDetail.useQuery(
+    { userId: selectedCustomer! },
+    { enabled: user?.role === "admin" && !!selectedCustomer }
+  );
+  const updateCustomerPlan = trpc.admin.updateCustomerPlan.useMutation();
 
   const seedMutation = trpc.admin.seed.useMutation();
   const createDiscipline = trpc.admin.createDiscipline.useMutation();
@@ -280,6 +296,10 @@ export default function AdminPanel() {
             <TabsTrigger value="questions" className="font-sans">{t("admin_questions")}</TabsTrigger>
             <TabsTrigger value="disciplines" className="font-sans">{t("admin_disciplines")}</TabsTrigger>
             <TabsTrigger value="subjects" className="font-sans">{t("admin_subjects")}</TabsTrigger>
+            <TabsTrigger value="customers" className="font-sans gap-1">
+              <Users className="h-3.5 w-3.5" />
+              {language === "pt" ? "Clientes" : "Customers"}
+            </TabsTrigger>
           </TabsList>
 
           {/* Questions tab */}
@@ -404,6 +424,143 @@ export default function AdminPanel() {
               {!subjects?.length && (
                 <div className="text-center py-10 text-muted-foreground font-sans">
                   {language === "pt" ? "Nenhum assunto cadastrado." : "No subjects yet."}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          {/* Customers tab */}
+          <TabsContent value="customers">
+            <div className="flex gap-3 mb-4 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder={language === "pt" ? "Buscar por nome ou email..." : "Search by name or email..."}
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="w-full h-9 rounded-md border border-border/50 bg-background px-3 py-1 text-sm font-sans focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <Select value={customerPlanFilter || "all"} onValueChange={(v) => setCustomerPlanFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-40 bg-background border-border/50 font-sans h-9">
+                  <SelectValue placeholder={language === "pt" ? "Plano" : "Plan"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "pt" ? "Todos" : "All"}</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Customer list */}
+              <div className="space-y-2">
+                {customers?.users.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCustomer(c.id)}
+                    className={`w-full text-left p-4 rounded-xl border transition-all font-sans ${
+                      selectedCustomer === c.id
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border/50 bg-card hover:border-primary/20"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-bold text-primary">{(c.name || c.email || "?")[0].toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{c.name || language === "pt" ? "Sem nome" : "No name"}</div>
+                        <div className="text-xs text-muted-foreground truncate">{c.email || "—"}</div>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-sans ${
+                        c.plan === "premium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" :
+                        c.plan === "trial" ? "bg-primary/20 text-primary border-primary/30" :
+                        "bg-muted/30 text-muted-foreground border-border/30"
+                      }`}>{c.plan}</span>
+                    </div>
+                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Zap className="h-3 w-3" />{c.xp} XP</span>
+                      <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{c.totalExams} {language === "pt" ? "simulados" : "exams"}</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(c.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </button>
+                ))}
+                {!customers?.users.length && (
+                  <div className="text-center py-10 text-muted-foreground font-sans">
+                    {language === "pt" ? "Nenhum cliente encontrado." : "No customers found."}
+                  </div>
+                )}
+              </div>
+
+              {/* Customer detail */}
+              {selectedCustomer && customerDetail && (
+                <div className="bg-card border border-border/50 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center gap-3 pb-3 border-b border-border/30">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                      <span className="text-lg font-bold text-primary">{(customerDetail.name || customerDetail.email || "?")[0].toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <div className="font-medium font-sans">{customerDetail.name || (language === "pt" ? "Sem nome" : "No name")}</div>
+                      <div className="text-sm text-muted-foreground font-sans flex items-center gap-1">
+                        <Mail className="h-3 w-3" />{customerDetail.email || "—"}
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedCustomer(null)} className="ml-auto text-muted-foreground hover:text-foreground text-xs font-sans">✕</button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: language === "pt" ? "Plano" : "Plan", value: customerDetail.plan, icon: Crown },
+                      { label: "XP", value: customerDetail.xp, icon: Zap },
+                      { label: language === "pt" ? "Nível" : "Level", value: customerDetail.level, icon: UserCheck },
+                      { label: language === "pt" ? "Simulados" : "Exams", value: customerDetail.totalExams, icon: BookOpen },
+                      { label: language === "pt" ? "Taxa Acerto" : "Accuracy", value: `${customerDetail.accuracy ?? 0}%`, icon: Zap },
+                      { label: language === "pt" ? "Membro desde" : "Member since", value: new Date(customerDetail.createdAt).toLocaleDateString(), icon: Calendar },
+                    ].map((item) => (
+                      <div key={item.label} className="p-3 bg-background rounded-lg border border-border/30">
+                        <div className="text-xs text-muted-foreground font-sans mb-1">{item.label}</div>
+                        <div className="font-medium font-sans text-sm">{String(item.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {customerDetail.trialEndsAt && (
+                    <div className="text-xs text-muted-foreground font-sans p-3 bg-primary/5 rounded-lg border border-primary/20">
+                      <span className="font-medium text-primary">{language === "pt" ? "Trial expira:" : "Trial expires:"}</span>{" "}
+                      {new Date(customerDetail.trialEndsAt).toLocaleDateString()}
+                    </div>
+                  )}
+                  {customerDetail.premiumEndsAt && (
+                    <div className="text-xs text-muted-foreground font-sans p-3 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
+                      <span className="font-medium text-yellow-400">{language === "pt" ? "Premium expira:" : "Premium expires:"}</span>{" "}
+                      {new Date(customerDetail.premiumEndsAt).toLocaleDateString()}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border/30">
+                    <div className="text-xs font-medium font-sans mb-2">{language === "pt" ? "Alterar Plano" : "Change Plan"}</div>
+                    <div className="flex gap-2">
+                      {["free", "trial", "premium"].map((p) => (
+                        <Button
+                          key={p}
+                          size="sm"
+                          variant={customerDetail.plan === p ? "default" : "outline"}
+                          className="flex-1 font-sans text-xs h-8"
+                          disabled={updateCustomerPlan.isPending}
+                          onClick={async () => {
+                            try {
+                              await updateCustomerPlan.mutateAsync({ userId: selectedCustomer!, plan: p as any });
+                              toast.success(language === "pt" ? "Plano atualizado!" : "Plan updated!");
+                            } catch (err: any) { toast.error(err.message); }
+                          }}
+                        >
+                          {p}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -66,8 +66,8 @@ export default function PaymentFailure() {
 
         <p className="text-xs text-muted-foreground mt-6">
           Precisa de ajuda? Entre em contato:{" "}
-          <a href="mailto:suporte@vetrank.com.br" className="text-primary hover:underline">
-            suporte@vetrank.com.br
+          <a href="mailto:calefi@csvet.com.br" className="text-primary hover:underline">
+            calefi@csvet.com.br
           </a>
         </p>
       </div>

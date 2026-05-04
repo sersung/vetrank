@@ -14,7 +14,7 @@ export default function PrivacyPolicy() {
         <section className="mb-6">
           <h2 className="text-xl font-semibold mb-2">1. Controlador dos Dados</h2>
           <p className="text-muted-foreground leading-relaxed">
-            O controlador dos dados pessoais coletados nesta plataforma é o <strong>VetRank</strong>, responsável pelas decisões sobre o tratamento de dados pessoais dos usuários. Contato do Encarregado (DPO): <a href="mailto:privacidade@vetrank.com.br" className="text-primary hover:underline">privacidade@vetrank.com.br</a>
+            O controlador dos dados pessoais coletados nesta plataforma é o <strong>VetRank</strong>, responsável pelas decisões sobre o tratamento de dados pessoais dos usuários. Contato do Encarregado (DPO): <a href="mailto:calefi@csvet.com.br" className="text-primary hover:underline">calefi@csvet.com.br</a>
           </p>
         </section>
 
@@ -25,7 +25,7 @@ export default function PrivacyPolicy() {
             <li><strong>Dados de cadastro:</strong> nome, endereço de e-mail, método de login.</li>
             <li><strong>Dados de uso:</strong> questões respondidas, simulados realizados, pontuação, nível e badges.</li>
             <li><strong>Dados técnicos:</strong> endereço IP, tipo de navegador, sistema operacional, logs de acesso.</li>
-            <li><strong>Dados de pagamento:</strong> processados por terceiros (Stripe); não armazenamos dados de cartão.</li>
+            <li><strong>Dados de pagamento:</strong> processados pelo Mercado Pago; não armazenamos dados de cartão ou informações bancárias.</li>
           </ul>
         </section>
 
@@ -69,7 +69,7 @@ export default function PrivacyPolicy() {
             <li>Opor-se ao tratamento realizado com fundamento em outras bases legais.</li>
           </ul>
           <p className="text-muted-foreground leading-relaxed mt-2">
-            Para exercer seus direitos, envie solicitação para: <a href="mailto:privacidade@vetrank.com.br" className="text-primary hover:underline">privacidade@vetrank.com.br</a>
+            Para exercer seus direitos, envie solicitação para: <a href="mailto:calefi@csvet.com.br" className="text-primary hover:underline">calefi@csvet.com.br</a>
           </p>
         </section>
 

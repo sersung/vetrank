@@ -73,7 +73,7 @@ export default function TermsOfUse() {
         <section className="mb-6">
           <h2 className="text-xl font-semibold mb-2">10. Contato</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Para dúvidas sobre estes Termos, entre em contato pelo e-mail: <a href="mailto:contato@vetrank.com.br" className="text-primary hover:underline">contato@vetrank.com.br</a>
+            Para dúvidas sobre estes Termos, entre em contato pelo e-mail: <a href="mailto:calefi@csvet.com.br" className="text-primary hover:underline">calefi@csvet.com.br</a>
           </p>
         </section>
       </div>
