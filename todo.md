@@ -207,3 +207,33 @@
 - [x] Admin CRUD for discursive questions inline in the page
 - [x] Add /discursive route to App.tsx
 - [x] Add "Discursivas" link to Navbar (PenLine icon)
+
+## All Question Formats (May 2026)
+
+### Schema & DB
+- [ ] Extend questionType enum: multiple_choice | assertion_reason | complex_multiple_choice | matching | true_false | ordering | cloze | clinical_case | image_analysis | interpretation
+- [ ] Add formatData JSON column to questions table (stores format-specific structured data)
+- [ ] Run migration and apply SQL
+
+### Backend
+- [ ] Update questions router create/update to accept formatData for each type
+- [ ] Add type-specific validation per questionType
+- [ ] Update list/getById to return formatData
+
+### Admin Panel
+- [ ] Assertion-Reason form: propositions I and II with PORQUE connector, fixed 5 options (1-5 ENADE standard)
+- [ ] Complex Multiple Choice form: items I/II/III/IV editor + combination options builder
+- [ ] Matching (Association) form: Column A items + Column B items editor
+- [ ] True/False Sequential form: list of statements, alternativas with V/F sequences
+- [ ] Ordering/Sequencing form: list of steps to be ordered
+- [ ] Cloze (Fill-in-the-blank) form: text with [BLANK] markers + answer options
+- [ ] Clinical Case / Image Analysis form: case text + image URL + standard 5 options
+
+### Student Renderer
+- [ ] Render assertion_reason: show propositions I and II with PORQUE, fixed 5 options
+- [ ] Render complex_multiple_choice: show items I/II/III + combination options
+- [ ] Render matching: two-column layout with drag/select matching
+- [ ] Render true_false: list of statements with V/F sequence options
+- [ ] Render ordering: numbered list with reorder UI or option selection
+- [ ] Render cloze: text with blanks highlighted + fill options
+- [ ] Render clinical_case / image_analysis: case text + optional image + options

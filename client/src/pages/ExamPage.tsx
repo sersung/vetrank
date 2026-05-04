@@ -30,6 +30,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Streamdown } from "streamdown";
+import QuestionRenderer from "@/components/QuestionRenderer";
 
 type ExamState = "config" | "taking" | "results";
 
@@ -42,6 +43,14 @@ interface ExamQuestion {
   explanationPt?: string | null;
   explanationEn?: string | null;
   difficulty: string;
+  questionType?: string;
+  assertion1?: string | null;
+  assertion2?: string | null;
+  formatData?: any;
+  disciplineName?: string;
+  subjectTag?: string | null;
+  author?: string | null;
+  year?: number | null;
 }
 
 export default function ExamPage() {
@@ -341,41 +350,32 @@ export default function ExamPage() {
         </div>
 
         <div className="container py-8 max-w-3xl mx-auto">
-          {/* Question */}
+          {/* Question + Options via universal renderer */}
           <div className="bg-card border border-border/50 rounded-2xl p-8 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Badge className={`text-xs font-sans border ${
-                currentQuestion.difficulty === "easy" ? "bg-green-500/20 text-green-400 border-green-500/30" :
-                currentQuestion.difficulty === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" :
-                "bg-red-500/20 text-red-400 border-red-500/30"
-              }`}>
-                {t(`exam_${currentQuestion.difficulty}` as any)}
-              </Badge>
-            </div>
-            <p className="text-base font-sans leading-relaxed">
-              {language === "pt" ? currentQuestion.textPt : (currentQuestion.textEn || currentQuestion.textPt)}
-            </p>
-          </div>
-
-          {/* Options */}
-          <div className="grid grid-cols-1 gap-3 mb-8">
-            {options.map((opt) => {
-              const isSelected = selectedAnswer === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => handleAnswer(currentQuestion.id, opt.id)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 font-sans text-sm ${
-                    isSelected
-                      ? "bg-primary/15 border-primary/50 text-foreground"
-                      : "bg-card border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  }`}
-                >
-                  <span className={`font-bold mr-3 ${isSelected ? "text-primary" : ""}`}>{opt.id})</span>
-                  {language === "pt" ? opt.textPt : (opt.textEn || opt.textPt)}
-                </button>
-              );
-            })}
+            <QuestionRenderer
+              question={{
+                id: currentQuestion.id,
+                textPt: currentQuestion.textPt,
+                textEn: currentQuestion.textEn ?? undefined,
+                questionType: currentQuestion.questionType,
+                options: options,
+                correctOption: currentQuestion.correctOption,
+                explanationPt: currentQuestion.explanationPt ?? undefined,
+                explanationEn: currentQuestion.explanationEn ?? undefined,
+                assertion1: currentQuestion.assertion1 ?? undefined,
+                assertion2: currentQuestion.assertion2 ?? undefined,
+                formatData: currentQuestion.formatData,
+                difficulty: currentQuestion.difficulty,
+                disciplineName: currentQuestion.disciplineName,
+                subjectTag: currentQuestion.subjectTag ?? undefined,
+                author: currentQuestion.author ?? undefined,
+                year: currentQuestion.year ?? undefined,
+              }}
+              selectedOption={selectedAnswer}
+              answered={false}
+              onAnswer={(optId) => handleAnswer(currentQuestion.id, optId)}
+              language={language as "pt" | "en"}
+            />
           </div>
 
           {/* Navigation */}

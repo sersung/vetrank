@@ -145,8 +145,23 @@ export const questions = mysqlTable("questions", {
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
   year: int("year"),
   // Question type (format)
-  questionType: mysqlEnum("questionType", ["multiple_choice", "assertion_reason", "discursive"]).default("multiple_choice").notNull(),
-  // Question model/template
+  questionType: mysqlEnum("questionType", [
+    "multiple_choice",      // Múltipla Escolha Simples: 5 alternativas A-E
+    "assertion_reason",     // Asserção-Razão ENADE: proposições I e II com PORQUE, 5 opções fixas
+    "complex_multiple_choice", // Múltipla Escolha Complexa: itens I/II/III com combinações
+    "matching",             // Associação: Coluna A ↔ Coluna B
+    "true_false",           // Verdadeiro ou Falso Sequencial: lista de afirmações V/F
+    "ordering",             // Ordenação/Sequenciamento: organizar etapas
+    "cloze",                // Preenchimento de Lacunas (Cloze): texto com [BLANK]
+    "clinical_case",        // Caso Clínico: anamnese/exames + alternativas
+    "image_analysis",       // Análise de Imagem/Gráfico: imagem + alternativas
+    "interpretation",       // Interpretação de Dados: tabela/resultado + alternativas
+    "discursive",           // Discursiva: resposta aberta
+  ]).default("multiple_choice").notNull(),
+  // Format-specific structured data (JSON)
+  // Used for: complex_multiple_choice items, matching columns, true_false statements, ordering steps, cloze blanks
+  formatData: json("formatData"),
+  // Question model/template (legacy, kept for compatibility)
   questionModel: mysqlEnum("questionModel", ["standard", "enade", "true_false", "assertion_reason"]).default("standard").notNull(),
   // Subject tag and author
   subjectTag: varchar("subjectTag", { length: 128 }),

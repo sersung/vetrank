@@ -13,6 +13,7 @@ import {
 import { useLanguage, useT } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import { BookOpen, ChevronLeft, ChevronRight, Crown, Lock, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import QuestionRenderer from "@/components/QuestionRenderer";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -298,33 +299,30 @@ export default function QuestionBank() {
 
                   {isExpanded && !isPremiumLocked && (
                     <div className="px-5 pb-5 border-t border-border/30 pt-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                        {options.map((opt) => (
-                          <div
-                            key={opt.id}
-                            className={`flex items-start gap-2 p-3 rounded-lg text-sm font-sans ${
-                              opt.id === q.correctOption
-                                ? "bg-green-500/15 border border-green-500/30 text-green-300"
-                                : "bg-accent/50 border border-border/30 text-muted-foreground"
-                            }`}
-                          >
-                            <span className={`font-bold shrink-0 ${opt.id === q.correctOption ? "text-green-400" : "text-muted-foreground"}`}>
-                              {opt.id})
-                            </span>
-                            {language === "pt" ? opt.textPt : (opt.textEn || opt.textPt)}
-                          </div>
-                        ))}
-                      </div>
-                      {(q.explanationPt || q.explanationEn) && (
-                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                          <p className="text-xs font-medium text-primary mb-1 font-sans">
-                            {language === "pt" ? "Explicação" : "Explanation"}
-                          </p>
-                          <p className="text-sm text-muted-foreground font-sans leading-relaxed">
-                            {language === "pt" ? q.explanationPt : (q.explanationEn || q.explanationPt)}
-                          </p>
-                        </div>
-                      )}
+                      <QuestionRenderer
+                        question={{
+                          id: q.id,
+                          textPt: q.textPt,
+                          textEn: q.textEn ?? undefined,
+                          questionType: q.questionType ?? undefined,
+                          options: options,
+                          correctOption: q.correctOption,
+                          explanationPt: q.explanationPt ?? undefined,
+                          explanationEn: (q as any).explanationEn ?? undefined,
+                          assertion1: q.assertion1 ?? undefined,
+                          assertion2: q.assertion2 ?? undefined,
+                          formatData: (q as any).formatData,
+                          difficulty: q.difficulty,
+                          disciplineName: (q as any).disciplineName,
+                          subjectTag: q.subjectTag ?? undefined,
+                          author: q.author ?? undefined,
+                          year: q.year ?? undefined,
+                        }}
+                        answered={true}
+                        revealAnswer={true}
+                        language={language as "pt" | "en"}
+                        showExplanation={true}
+                      />
                     </div>
                   )}
                 </div>

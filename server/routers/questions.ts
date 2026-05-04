@@ -18,7 +18,22 @@ import {
 } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 
-const questionTypeEnum = z.enum(["multiple_choice", "assertion_reason", "discursive"]);
+const questionTypeEnum = z.enum([
+  "multiple_choice",
+  "assertion_reason",
+  "complex_multiple_choice",
+  "matching",
+  "true_false",
+  "ordering",
+  "cloze",
+  "clinical_case",
+  "image_analysis",
+  "interpretation",
+  "discursive",
+]);
+
+// formatData schema — flexible JSON for each question type
+const formatDataSchema = z.any().optional();
 
 export const questionsRouter = router({
   list: publicProcedure
@@ -73,6 +88,7 @@ export const questionsRouter = router({
         explanationEn: z.string().optional(),
         assertion1: z.string().optional(),
         assertion2: z.string().optional(),
+        formatData: formatDataSchema,
         isPremium: z.boolean().default(false),
       })
     )
@@ -101,6 +117,7 @@ export const questionsRouter = router({
         explanationEn: z.string().optional(),
         assertion1: z.string().optional(),
         assertion2: z.string().optional(),
+        formatData: formatDataSchema,
         isPremium: z.boolean().optional(),
         active: z.boolean().optional(),
       })

@@ -38,8 +38,26 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import {
+  ASSERTION_REASON_OPTIONS,
+  AssertionReasonSection,
+  ComplexMCSection,
+  MatchingSection,
+  TrueFalseSection,
+  OrderingSection,
+  ClozeSection,
+  MediaSection,
+  MultipleChoiceOptions,
+  QUESTION_TYPE_LABELS,
+  type QuestionType,
+  type FormatData,
+  type ComplexMCItem,
+  type MatchingPair,
+  type TrueFalseStatement,
+  type OrderingStep,
+} from "@/components/QuestionFormats";
 
 export default function AdminPanel() {
   const t = useT();
@@ -99,15 +117,23 @@ export default function AdminPanel() {
   const [newSubject, setNewSubject] = useState({ disciplineId: "", slug: "", namePt: "", nameEn: "" });
   const [aiGenConfig, setAiGenConfig] = useState({ disciplineId: "", difficulty: "medium", topic: "" });
   const [aiGenResult, setAiGenResult] = useState<any>(null);
+  const defaultOptions = [
+    { id: "A", textPt: "", textEn: "" },
+    { id: "B", textPt: "", textEn: "" },
+    { id: "C", textPt: "", textEn: "" },
+    { id: "D", textPt: "", textEn: "" },
+    { id: "E", textPt: "", textEn: "" },
+  ];
   const [newQuestion, setNewQuestion] = useState({
     textPt: "", textEn: "", disciplineId: "", subjectId: "",
     difficulty: "medium", year: "", isPremium: false,
-    questionType: "multiple_choice" as "multiple_choice" | "assertion_reason" | "discursive",
+    questionType: "multiple_choice" as QuestionType,
     subjectTag: "", author: "",
-    optA: "", optB: "", optC: "", optD: "", optE: "",
-    optAEn: "", optBEn: "", optCEn: "", optDEn: "", optEEn: "",
     correctOption: "A", explanationPt: "", explanationEn: "",
     assertion1: "", assertion2: "",
+    // format-specific
+    options: defaultOptions as Array<{ id: string; textPt: string; textEn?: string }>,
+    formatData: {} as FormatData,
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -228,33 +254,62 @@ export default function AdminPanel() {
     }
   };
 
+  const resetNewQuestion = () => setNewQuestion({
+    textPt: "", textEn: "", disciplineId: "", subjectId: "",
+    difficulty: "medium", year: "", isPremium: false,
+    questionType: "multiple_choice",
+    subjectTag: "", author: "",
+    correctOption: "A", explanationPt: "", explanationEn: "",
+    assertion1: "", assertion2: "",
+    options: [
+      { id: "A", textPt: "", textEn: "" },
+      { id: "B", textPt: "", textEn: "" },
+      { id: "C", textPt: "", textEn: "" },
+      { id: "D", textPt: "", textEn: "" },
+      { id: "E", textPt: "", textEn: "" },
+    ],
+    formatData: {},
+  });
+
   const handleAddQuestion = async () => {
     if (!newQuestion.textPt || !newQuestion.disciplineId) {
       toast.error(language === "pt" ? "Preencha os campos obrigatórios" : "Fill required fields");
       return;
     }
-    // For multiple_choice and assertion_reason, options are required
-    if (newQuestion.questionType !== "discursive" && (!newQuestion.optA || !newQuestion.optB)) {
-      toast.error(language === "pt" ? "Preencha pelo menos as opções A e B" : "Fill at least options A and B");
-      return;
-    }
     try {
-      // For assertion_reason, use fixed standard options
-      const assertionOptions = [
-        { id: "A", textPt: "As duas afirmativas são verdadeiras e a segunda justifica a primeira.", textEn: "Both statements are true and the second justifies the first." },
-        { id: "B", textPt: "As duas afirmativas são verdadeiras, mas a segunda não justifica a primeira.", textEn: "Both statements are true, but the second does not justify the first." },
-        { id: "C", textPt: "A primeira afirmativa é verdadeira e a segunda é falsa.", textEn: "The first statement is true and the second is false." },
-        { id: "D", textPt: "A primeira afirmativa é falsa e a segunda é verdadeira.", textEn: "The first statement is false and the second is true." },
-        { id: "E", textPt: "As duas afirmativas são falsas.", textEn: "Both statements are false." },
-      ];
-      const options = newQuestion.questionType === "assertion_reason" ? assertionOptions :
-        newQuestion.questionType === "discursive" ? [] : [
-          { id: "A", textPt: newQuestion.optA, textEn: newQuestion.optAEn || newQuestion.optA },
-          { id: "B", textPt: newQuestion.optB, textEn: newQuestion.optBEn || newQuestion.optB },
-          { id: "C", textPt: newQuestion.optC, textEn: newQuestion.optCEn || newQuestion.optC },
-          { id: "D", textPt: newQuestion.optD, textEn: newQuestion.optDEn || newQuestion.optD },
-          ...(newQuestion.optE ? [{ id: "E", textPt: newQuestion.optE, textEn: newQuestion.optEEn || newQuestion.optE }] : []),
-        ];
+      const qType = newQuestion.questionType;
+      // Determine options to submit
+      let options: Array<{ id: string; textPt: string; textEn?: string }> = [];
+      if (qType === "assertion_reason") {
+        options = ASSERTION_REASON_OPTIONS.map(o => ({ id: o.id, textPt: o.textPt, textEn: o.textEn }));
+      } else if (qType === "discursive") {
+        options = [];
+      } else {
+        options = newQuestion.options.filter(o => o.textPt.trim());
+        if (options.length < 2) {
+          toast.error(language === "pt" ? "Preencha pelo menos 2 alternativas" : "Fill at least 2 options");
+          return;
+        }
+      }
+
+      // Build formatData for complex types
+      let formatData: any = undefined;
+      if (qType === "complex_multiple_choice" && newQuestion.formatData.items?.length) {
+        formatData = { items: newQuestion.formatData.items };
+      } else if (qType === "matching" && newQuestion.formatData.pairs?.length) {
+        formatData = { pairs: newQuestion.formatData.pairs };
+      } else if (qType === "true_false" && newQuestion.formatData.statements?.length) {
+        formatData = { statements: newQuestion.formatData.statements };
+      } else if (qType === "ordering" && newQuestion.formatData.steps?.length) {
+        formatData = { steps: newQuestion.formatData.steps };
+      } else if (["clinical_case", "image_analysis", "interpretation"].includes(qType)) {
+        formatData = {
+          imageUrl: newQuestion.formatData.imageUrl,
+          caseText: newQuestion.formatData.caseText,
+          tableData: newQuestion.formatData.tableData,
+        };
+      }
+
       await createQuestion.mutateAsync({
         textPt: newQuestion.textPt,
         textEn: newQuestion.textEn || undefined,
@@ -263,18 +318,20 @@ export default function AdminPanel() {
         difficulty: newQuestion.difficulty as "easy" | "medium" | "hard",
         year: newQuestion.year ? parseInt(newQuestion.year) : undefined,
         isPremium: newQuestion.isPremium,
-        questionType: newQuestion.questionType,
+        questionType: qType,
         subjectTag: newQuestion.subjectTag || undefined,
         author: newQuestion.author || undefined,
         options,
-        correctOption: newQuestion.questionType === "discursive" ? "N/A" : newQuestion.correctOption,
+        correctOption: qType === "discursive" ? "N/A" : newQuestion.correctOption,
         explanationPt: newQuestion.explanationPt || undefined,
         explanationEn: newQuestion.explanationEn || undefined,
-        assertion1: newQuestion.questionType === "assertion_reason" ? newQuestion.assertion1 || undefined : undefined,
-        assertion2: newQuestion.questionType === "assertion_reason" ? newQuestion.assertion2 || undefined : undefined,
+        assertion1: qType === "assertion_reason" ? newQuestion.assertion1 || undefined : undefined,
+        assertion2: qType === "assertion_reason" ? newQuestion.assertion2 || undefined : undefined,
+        formatData,
       });
       toast.success(language === "pt" ? "Questão criada!" : "Question created!");
       setShowAddQuestion(false);
+      resetNewQuestion();
       refetchQuestions();
     } catch (err: any) {
       toast.error(err.message);
@@ -1079,64 +1136,48 @@ export default function AdminPanel() {
       </Dialog>
 
       {/* Add Question Dialog */}
-      <Dialog open={showAddQuestion} onOpenChange={setShowAddQuestion}>
+      <Dialog open={showAddQuestion} onOpenChange={(open) => { setShowAddQuestion(open); if (!open) resetNewQuestion(); }}>
         <DialogContent className="bg-card border-border/50 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif">{language === "pt" ? "Nova Questão" : "New Question"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {/* Question Type */}
-            <Select value={newQuestion.questionType} onValueChange={(v) => setNewQuestion((p) => ({ ...p, questionType: v as any }))}>
+            {/* Question Type Selector */}
+            <Select value={newQuestion.questionType} onValueChange={(v) => setNewQuestion((p) => ({ ...p, questionType: v as QuestionType, correctOption: "A", options: defaultOptions, formatData: {} }))}>
               <SelectTrigger className="bg-background font-sans">
                 <SelectValue placeholder={language === "pt" ? "Tipo de Questão" : "Question Type"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="multiple_choice">{language === "pt" ? "Múltipla Escolha" : "Multiple Choice"}</SelectItem>
-                <SelectItem value="assertion_reason">{language === "pt" ? "Asserció-Razão" : "Assertion-Reason"}</SelectItem>
-                <SelectItem value="discursive">{language === "pt" ? "Discursiva" : "Discursive"}</SelectItem>
+                {(Object.entries(QUESTION_TYPE_LABELS) as [QuestionType, { pt: string; en: string; description: string }][]).map(([val, label]) => (
+                  <SelectItem key={val} value={val}>
+                    <span className="font-sans">{language === "pt" ? label.pt : label.en}</span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
+            {/* Type description hint */}
+            <p className="text-xs text-muted-foreground font-sans px-1">
+              {language === "pt" ? QUESTION_TYPE_LABELS[newQuestion.questionType].description : QUESTION_TYPE_LABELS[newQuestion.questionType].en}
+            </p>
+
+            {/* Question text */}
             <textarea
-              placeholder={newQuestion.questionType === "assertion_reason" ? (language === "pt" ? "Enunciado / Contexto PT *" : "Statement / Context PT *") : "Texto PT *"}
+              placeholder="Enunciado PT *"
               value={newQuestion.textPt}
               onChange={(e) => setNewQuestion((p) => ({ ...p, textPt: e.target.value }))}
-              className="w-full h-20 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              rows={3}
+              className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <textarea
-              placeholder="Text EN"
+              placeholder="Statement EN"
               value={newQuestion.textEn}
               onChange={(e) => setNewQuestion((p) => ({ ...p, textEn: e.target.value }))}
-              className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              rows={2}
+              className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
 
-            {/* Assertion-Reason: Afirmativas I e II */}
-            {newQuestion.questionType === "assertion_reason" && (
-              <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <p className="text-xs font-sans font-medium text-primary">{language === "pt" ? "Afirmativas (Asserció-Razão)" : "Assertions (Assertion-Reason)"}</p>
-                <textarea
-                  placeholder={language === "pt" ? "Afirmativa I (Asserció) *" : "Assertion I *"}
-                  value={newQuestion.assertion1}
-                  onChange={(e) => setNewQuestion((p) => ({ ...p, assertion1: e.target.value }))}
-                  className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <textarea
-                  placeholder={language === "pt" ? "Afirmativa II (Razão) *" : "Assertion II (Reason) *"}
-                  value={newQuestion.assertion2}
-                  onChange={(e) => setNewQuestion((p) => ({ ...p, assertion2: e.target.value }))}
-                  className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <div className="p-2 bg-background rounded border border-border/30 text-xs text-muted-foreground font-sans space-y-1">
-                  <p className="font-medium">{language === "pt" ? "Opções fixas (padrão ENADE):" : "Fixed options (ENADE standard):"}</p>
-                  <p>A) Ambas verdadeiras, II justifica I</p>
-                  <p>B) Ambas verdadeiras, II não justifica I</p>
-                  <p>C) I verdadeira, II falsa</p>
-                  <p>D) I falsa, II verdadeira</p>
-                  <p>E) Ambas falsas</p>
-                </div>
-              </div>
-            )}
-
+            {/* Discipline + Difficulty */}
             <div className="grid grid-cols-2 gap-3">
               <Select value={newQuestion.disciplineId} onValueChange={(v) => setNewQuestion((p) => ({ ...p, disciplineId: v }))}>
                 <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={t("exam_discipline")} /></SelectTrigger>
@@ -1156,51 +1197,130 @@ export default function AdminPanel() {
 
             {/* Subject tag + Author */}
             <div className="grid grid-cols-2 gap-3">
-              <Input placeholder={language === "pt" ? "Tag de assunto (ex: Parasitologia)" : "Subject tag (e.g. Parasitology)"} value={newQuestion.subjectTag} onChange={(e) => setNewQuestion((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
+              <Input placeholder={language === "pt" ? "Tag de assunto" : "Subject tag"} value={newQuestion.subjectTag} onChange={(e) => setNewQuestion((p) => ({ ...p, subjectTag: e.target.value }))} className="font-sans bg-background" />
               <Input placeholder={language === "pt" ? "Autor / Banca" : "Author / Board"} value={newQuestion.author} onChange={(e) => setNewQuestion((p) => ({ ...p, author: e.target.value }))} className="font-sans bg-background" />
             </div>
 
-            {/* Multiple choice options */}
+            {/* ── Format-specific sections ── */}
+
+            {/* Assertion-Reason */}
+            {newQuestion.questionType === "assertion_reason" && (
+              <AssertionReasonSection
+                assertion1={newQuestion.assertion1}
+                assertion2={newQuestion.assertion2}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onChange={(field, value) => setNewQuestion((p) => ({ ...p, [field]: value }))}
+              />
+            )}
+
+            {/* Complex Multiple Choice */}
+            {newQuestion.questionType === "complex_multiple_choice" && (
+              <ComplexMCSection
+                items={newQuestion.formatData.items || []}
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onItemsChange={(items) => setNewQuestion((p) => ({ ...p, formatData: { ...p.formatData, items } }))}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
+            )}
+
+            {/* Matching */}
+            {newQuestion.questionType === "matching" && (
+              <MatchingSection
+                pairs={newQuestion.formatData.pairs || []}
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onPairsChange={(pairs) => setNewQuestion((p) => ({ ...p, formatData: { ...p.formatData, pairs } }))}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
+            )}
+
+            {/* True/False Sequential */}
+            {newQuestion.questionType === "true_false" && (
+              <TrueFalseSection
+                statements={newQuestion.formatData.statements || []}
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onStatementsChange={(statements) => setNewQuestion((p) => ({ ...p, formatData: { ...p.formatData, statements } }))}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
+            )}
+
+            {/* Ordering */}
+            {newQuestion.questionType === "ordering" && (
+              <OrderingSection
+                steps={newQuestion.formatData.steps || []}
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onStepsChange={(steps) => setNewQuestion((p) => ({ ...p, formatData: { ...p.formatData, steps } }))}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
+            )}
+
+            {/* Cloze */}
+            {newQuestion.questionType === "cloze" && (
+              <ClozeSection
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
+            )}
+
+            {/* Clinical Case / Image Analysis / Interpretation */}
+            {["clinical_case", "image_analysis", "interpretation"].includes(newQuestion.questionType) && (
+              <>
+                <MediaSection
+                  questionType={newQuestion.questionType}
+                  imageUrl={newQuestion.formatData.imageUrl}
+                  caseText={newQuestion.formatData.caseText}
+                  tableData={newQuestion.formatData.tableData}
+                  lang={language as "pt" | "en"}
+                  onChange={(field, val) => setNewQuestion((p) => ({ ...p, formatData: { ...p.formatData, [field]: val } }))}
+                />
+                <MultipleChoiceOptions
+                  options={newQuestion.options}
+                  correctOption={newQuestion.correctOption}
+                  lang={language as "pt" | "en"}
+                  onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                  onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+                />
+              </>
+            )}
+
+            {/* Standard Multiple Choice options */}
             {newQuestion.questionType === "multiple_choice" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="Opção A PT *" value={newQuestion.optA} onChange={(e) => setNewQuestion((p) => ({ ...p, optA: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Option A EN" value={newQuestion.optAEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optAEn: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Opção B PT *" value={newQuestion.optB} onChange={(e) => setNewQuestion((p) => ({ ...p, optB: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Option B EN" value={newQuestion.optBEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optBEn: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Opção C PT *" value={newQuestion.optC} onChange={(e) => setNewQuestion((p) => ({ ...p, optC: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Option C EN" value={newQuestion.optCEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optCEn: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Opção D PT *" value={newQuestion.optD} onChange={(e) => setNewQuestion((p) => ({ ...p, optD: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Option D EN" value={newQuestion.optDEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optDEn: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Opção E PT (opcional)" value={newQuestion.optE} onChange={(e) => setNewQuestion((p) => ({ ...p, optE: e.target.value }))} className="font-sans bg-background" />
-                <Input placeholder="Option E EN" value={newQuestion.optEEn} onChange={(e) => setNewQuestion((p) => ({ ...p, optEEn: e.target.value }))} className="font-sans bg-background" />
-              </div>
+              <MultipleChoiceOptions
+                options={newQuestion.options}
+                correctOption={newQuestion.correctOption}
+                lang={language as "pt" | "en"}
+                onOptionsChange={(opts) => setNewQuestion((p) => ({ ...p, options: opts }))}
+                onCorrectChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}
+              />
             )}
 
-            {/* Correct option (for multiple_choice and assertion_reason) */}
-            {newQuestion.questionType !== "discursive" && (
-              <Select value={newQuestion.correctOption} onValueChange={(v) => setNewQuestion((p) => ({ ...p, correctOption: v }))}>
-                <SelectTrigger className="bg-background font-sans"><SelectValue placeholder={language === "pt" ? "Resposta Correta" : "Correct Answer"} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">A</SelectItem>
-                  <SelectItem value="B">B</SelectItem>
-                  <SelectItem value="C">C</SelectItem>
-                  <SelectItem value="D">D</SelectItem>
-                  <SelectItem value="E">E</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
+            {/* Explanation */}
             <textarea
               placeholder={language === "pt" ? "Explicação PT" : "Explanation PT"}
               value={newQuestion.explanationPt}
               onChange={(e) => setNewQuestion((p) => ({ ...p, explanationPt: e.target.value }))}
-              className="w-full h-16 p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+              rows={2}
+              className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <div className="grid grid-cols-2 gap-3">
-              <Input placeholder={language === "pt" ? "Ano (opcional)" : "Year (optional)"} value={newQuestion.year} onChange={(e) => setNewQuestion((p) => ({ ...p, year: e.target.value }))} className="font-sans bg-background" />
-            </div>
+            <Input placeholder={language === "pt" ? "Ano (opcional)" : "Year (optional)"} value={newQuestion.year} onChange={(e) => setNewQuestion((p) => ({ ...p, year: e.target.value }))} className="font-sans bg-background" />
+
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowAddQuestion(false)} className="flex-1 font-sans">{t("cancel")}</Button>
+              <Button variant="outline" onClick={() => { setShowAddQuestion(false); resetNewQuestion(); }} className="flex-1 font-sans">{t("cancel")}</Button>
               <Button onClick={handleAddQuestion} disabled={createQuestion.isPending} className="flex-1 bg-primary text-primary-foreground font-sans">
                 {createQuestion.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save")}
               </Button>

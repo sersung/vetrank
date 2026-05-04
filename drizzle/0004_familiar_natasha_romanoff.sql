@@ -1,0 +1,2 @@
+ALTER TABLE `questions` MODIFY COLUMN `questionType` enum('multiple_choice','assertion_reason','complex_multiple_choice','matching','true_false','ordering','cloze','clinical_case','image_analysis','interpretation','discursive') NOT NULL DEFAULT 'multiple_choice';--> statement-breakpoint
+ALTER TABLE `questions` ADD `formatData` json;

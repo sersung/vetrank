@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { BookOpen, RefreshCw, ChevronRight, CheckCircle, XCircle, Lightbulb, Flag } from "lucide-react";
+import QuestionRenderer from "@/components/QuestionRenderer";
 import { Textarea } from "@/components/ui/textarea";
 import { getLoginUrl } from "@/const";
 import { Streamdown } from "streamdown";
@@ -202,16 +203,8 @@ export default function PracticeMode() {
         ) : (
           <Card className="border-border/50">
             <CardContent className="p-6">
-              {/* Question meta */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex gap-2 flex-wrap">
-                  <Badge variant="outline" className="text-xs">{question.disciplineName}</Badge>
-                  {question.subjectName && <Badge variant="outline" className="text-xs">{question.subjectName}</Badge>}
-                  <Badge variant="outline" className={`text-xs ${question.difficulty === "easy" ? "text-green-400" : question.difficulty === "hard" ? "text-red-400" : "text-yellow-400"}`}>
-                    {question.difficulty === "easy" ? "Fácil" : question.difficulty === "hard" ? "Difícil" : "Médio"}
-                  </Badge>
-                  {question.year && <Badge variant="outline" className="text-xs">{question.year}</Badge>}
-                </div>
+              {/* Report button */}
+              <div className="flex justify-end mb-2">
                 <button
                   onClick={() => setReportOpen(true)}
                   className="text-muted-foreground hover:text-destructive transition-colors"
@@ -221,44 +214,23 @@ export default function PracticeMode() {
                 </button>
               </div>
 
-              {/* Question text */}
-              <p className="text-base leading-relaxed mb-4">
-                {lang === "en" && question.textEn ? question.textEn : question.textPt}
-              </p>
-
-              {/* Question image */}
-              {question.imageUrl && (
-                <img src={question.imageUrl} alt="Imagem da questão" className="max-h-48 rounded-lg border border-border mb-4" />
-              )}
-
-              {/* Options */}
-              <div className="space-y-2 mb-4">
-                {options.map((opt: any) => {
-                  let cls = "border border-border/50 bg-muted/20 hover:bg-muted/40 cursor-pointer";
-                  if (submitted) {
-                    if (opt.id === question.correctOption) cls = "border-green-500 bg-green-500/20 text-green-300";
-                    else if (opt.id === selectedOption) cls = "border-red-500 bg-red-500/20 text-red-300";
-                    else cls = "border-border/30 bg-muted/10 opacity-60";
-                  } else if (selectedOption === opt.id) {
-                    cls = "border-primary bg-primary/20";
-                  }
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleAnswer(opt.id)}
-                      disabled={submitted}
-                      className={`w-full text-left p-3 rounded-lg transition-all ${cls}`}
-                    >
-                      <span className="font-bold mr-2">{opt.id}.</span>
-                      {lang === "en" && opt.textEn ? opt.textEn : opt.textPt}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Universal question renderer */}
+              <QuestionRenderer
+                question={{
+                  ...question,
+                  options: (question.options as any[]) ?? [],
+                  formatData: (question as any).formatData,
+                }}
+                selectedOption={selectedOption}
+                answered={submitted}
+                onAnswer={handleAnswer}
+                language={lang as "pt" | "en"}
+                showExplanation={showExplanation}
+              />
 
               {/* Result feedback */}
               {submitted && (
-                <div className={`p-3 rounded-lg mb-4 flex items-center gap-2 ${selectedOption === question.correctOption ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                <div className={`mt-4 p-3 rounded-lg flex items-center gap-2 ${selectedOption === question.correctOption ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
                   {selectedOption === question.correctOption
                     ? <><CheckCircle className="w-4 h-4" /><span className="text-sm font-medium">Correto! +2 XP</span></>
                     : <><XCircle className="w-4 h-4" /><span className="text-sm font-medium">Incorreto. A resposta correta é <strong>{question.correctOption}</strong>.</span></>
@@ -266,9 +238,9 @@ export default function PracticeMode() {
                 </div>
               )}
 
-              {/* Explanation */}
+              {/* Explanation toggle + AI */}
               {submitted && (
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2 mt-3">
                   {question.explanationPt && (
                     <button
                       onClick={() => setShowExplanation(!showExplanation)}
@@ -277,11 +249,6 @@ export default function PracticeMode() {
                       <Lightbulb className="w-4 h-4" />
                       {showExplanation ? "Ocultar explicação" : "Ver explicação"}
                     </button>
-                  )}
-                  {showExplanation && question.explanationPt && (
-                    <div className="p-3 rounded-lg bg-muted/30 border border-border/40 text-sm text-muted-foreground">
-                      {lang === "en" && question.explanationEn ? question.explanationEn : question.explanationPt}
-                    </div>
                   )}
                   <button
                     onClick={handleAIExplain}
@@ -300,7 +267,7 @@ export default function PracticeMode() {
 
               {/* Next button */}
               {submitted && (
-                <Button onClick={handleNext} className="w-full">
+                <Button onClick={handleNext} className="w-full mt-4">
                   Próxima Questão <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               )}
