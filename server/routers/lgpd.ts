@@ -2,8 +2,11 @@ import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb, addXp } from "../db";
-import { users, practiceSessions, questions, disciplines, subjects } from "../../drizzle/schema";
-import { eq, and, desc, sql, not, inArray } from "drizzle-orm";
+import {
+  users, practiceSessions, questions, disciplines, subjects,
+  exams, examAnswers, xpEvents,
+} from "../../drizzle/schema";
+import { eq, and, desc, asc, sql, not, inArray, isNotNull, gte } from "drizzle-orm";
 
 const LGPD_VERSION = "1.0";
 
@@ -56,27 +59,39 @@ export const practiceRouter = router({
         excludeIds = answered.map(a => a.questionId);
       }
 
-      const conditions = ["q.active = 1", "q.status = 'approved'"];
-      if (input.disciplineId) conditions.push(`q.disciplineId = ${input.disciplineId}`);
-      if (input.subjectId) conditions.push(`q.subjectId = ${input.subjectId}`);
-      if (input.difficulty !== "any") conditions.push(`q.difficulty = '${input.difficulty}'`);
-      if (excludeIds.length > 0) conditions.push(`q.id NOT IN (${excludeIds.join(",")})`);
+      const conditions = [
+        eq(questions.active, true),
+        eq(questions.status, "approved"),
+      ] as ReturnType<typeof eq>[];
+      if (input.disciplineId) conditions.push(eq(questions.disciplineId, input.disciplineId));
+      if (input.subjectId) conditions.push(eq(questions.subjectId, input.subjectId));
+      if (input.difficulty !== "any") conditions.push(eq(questions.difficulty, input.difficulty));
+      if (excludeIds.length > 0) conditions.push(not(inArray(questions.id, excludeIds)));
 
-      const rows = await db.execute(`
-        SELECT q.id, q.textPt, q.textEn, q.options, q.correctOption, q.explanationPt,
-          q.explanationEn, q.difficulty, q.questionModel, q.imageUrl, q.year,
-          d.namePt as disciplineName, s.namePt as subjectName
-        FROM questions q
-        LEFT JOIN disciplines d ON q.disciplineId = d.id
-        LEFT JOIN subjects s ON q.subjectId = s.id
-        WHERE ${conditions.join(" AND ")}
-        ORDER BY RAND()
-        LIMIT 1
-      `) as any;
+      const [q] = await db
+        .select({
+          id: questions.id,
+          textPt: questions.textPt,
+          textEn: questions.textEn,
+          options: questions.options,
+          correctOption: questions.correctOption,
+          explanationPt: questions.explanationPt,
+          explanationEn: questions.explanationEn,
+          difficulty: questions.difficulty,
+          questionModel: questions.questionModel,
+          imageUrl: questions.imageUrl,
+          year: questions.year,
+          disciplineName: disciplines.namePt,
+          subjectName: subjects.namePt,
+        })
+        .from(questions)
+        .leftJoin(disciplines, eq(questions.disciplineId, disciplines.id))
+        .leftJoin(subjects, eq(questions.subjectId, subjects.id))
+        .where(and(...conditions))
+        .orderBy(sql`RAND()`)
+        .limit(1);
 
-      const q = (rows[0] as any[])[0];
-      if (!q) return null;
-      return q;
+      return q ?? null;
     }),
 
   // ── Submit practice answer ─────────────────────────────────────────────────
@@ -118,18 +133,18 @@ export const practiceRouter = router({
   myStats: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const rows = await db.execute(`
-      SELECT
-        COUNT(*) as total,
-        SUM(isCorrect) as correct,
-        d.namePt as disciplineName,
-        ps.disciplineId
-      FROM practice_sessions ps
-      LEFT JOIN disciplines d ON ps.disciplineId = d.id
-      WHERE ps.userId = ${ctx.user.id}
-      GROUP BY ps.disciplineId, d.namePt
-    `) as any;
-    return rows[0] as any[];
+    const rows = await db
+      .select({
+        total: sql<number>`count(*)`,
+        correct: sql<number>`sum(${practiceSessions.isCorrect})`,
+        disciplineName: disciplines.namePt,
+        disciplineId: practiceSessions.disciplineId,
+      })
+      .from(practiceSessions)
+      .leftJoin(disciplines, eq(practiceSessions.disciplineId, disciplines.id))
+      .where(eq(practiceSessions.userId, ctx.user.id))
+      .groupBy(practiceSessions.disciplineId, disciplines.namePt);
+    return rows;
   }),
 
   // ── Get performance dashboard data ─────────────────────────────────────────
@@ -137,71 +152,106 @@ export const practiceRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
-    // Overall stats
-    const [overall] = await db.execute(`
-      SELECT
-        totalExams, totalQuestions, totalCorrect, xp, level, streak,
-        CASE WHEN totalQuestions > 0 THEN ROUND(totalCorrect * 100.0 / totalQuestions, 1) ELSE 0 END as accuracy
-      FROM users WHERE id = ${ctx.user.id}
-    `) as any;
+    const accuracyExpr = sql<number>`
+      CASE WHEN count(${examAnswers.id}) > 0
+        THEN ROUND(sum(${examAnswers.isCorrect}) * 100.0 / count(${examAnswers.id}), 1)
+        ELSE 0
+      END`;
 
-    // Per-discipline accuracy from exams
-    const [byDiscipline] = await db.execute(`
-      SELECT d.namePt as disciplineName, d.id as disciplineId,
-        COUNT(ea.id) as total,
-        SUM(ea.isCorrect) as correct,
-        CASE WHEN COUNT(ea.id) > 0 THEN ROUND(SUM(ea.isCorrect) * 100.0 / COUNT(ea.id), 1) ELSE 0 END as accuracy
-      FROM exam_answers ea
-      JOIN exams e ON ea.examId = e.id
-      JOIN questions q ON ea.questionId = q.id
-      JOIN disciplines d ON q.disciplineId = d.id
-      WHERE e.userId = ${ctx.user.id} AND e.status = 'completed'
-      GROUP BY d.id, d.namePt
-      ORDER BY accuracy ASC
-    `) as any;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Last 10 exams
-    const [recentExams] = await db.execute(`
-      SELECT e.id, e.accuracy, e.correctAnswers, e.totalQuestions, e.xpEarned,
-        e.timeSpentSeconds, e.createdAt, d.namePt as disciplineName
-      FROM exams e
-      LEFT JOIN disciplines d ON e.disciplineId = d.id
-      WHERE e.userId = ${ctx.user.id} AND e.status = 'completed'
-      ORDER BY e.createdAt DESC
-      LIMIT 10
-    `) as any;
+    const [overall, byDiscipline, recentExams, bySubject, xpHistory] = await Promise.all([
+      // User totals + computed accuracy
+      db.select({
+        totalExams: users.totalExams,
+        totalQuestions: users.totalQuestions,
+        totalCorrect: users.totalCorrect,
+        xp: users.xp,
+        level: users.level,
+        streak: users.streak,
+        accuracy: sql<number>`
+          CASE WHEN ${users.totalQuestions} > 0
+            THEN ROUND(${users.totalCorrect} * 100.0 / ${users.totalQuestions}, 1)
+            ELSE 0
+          END`,
+      }).from(users).where(eq(users.id, ctx.user.id)).limit(1),
 
-    // Per-subject accuracy from exams
-    const [bySubject] = await db.execute(`
-      SELECT s.namePt as subjectName, s.id as subjectId, d.namePt as disciplineName, d.id as disciplineId,
-        COUNT(ea.id) as total,
-        SUM(ea.isCorrect) as correct,
-        CASE WHEN COUNT(ea.id) > 0 THEN ROUND(SUM(ea.isCorrect) * 100.0 / COUNT(ea.id), 1) ELSE 0 END as accuracy
-      FROM exam_answers ea
-      JOIN exams e ON ea.examId = e.id
-      JOIN questions q ON ea.questionId = q.id
-      JOIN subjects s ON q.subjectId = s.id
-      JOIN disciplines d ON q.disciplineId = d.id
-      WHERE e.userId = ${ctx.user.id} AND e.status = 'completed' AND q.subjectId IS NOT NULL
-      GROUP BY s.id, s.namePt, d.id, d.namePt
-      ORDER BY accuracy ASC
-    `) as any;
+      // Per-discipline accuracy from exam answers
+      db.select({
+        disciplineName: disciplines.namePt,
+        disciplineId: disciplines.id,
+        total: sql<number>`count(${examAnswers.id})`,
+        correct: sql<number>`sum(${examAnswers.isCorrect})`,
+        accuracy: accuracyExpr,
+      })
+        .from(examAnswers)
+        .innerJoin(exams, eq(examAnswers.examId, exams.id))
+        .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+        .innerJoin(disciplines, eq(questions.disciplineId, disciplines.id))
+        .where(and(eq(exams.userId, ctx.user.id), eq(exams.status, "completed")))
+        .groupBy(disciplines.id, disciplines.namePt)
+        .orderBy(sql`accuracy ASC`),
 
-    // XP history (last 30 days)
-    const [xpHistory] = await db.execute(`
-      SELECT DATE(createdAt) as date, SUM(amount) as xp
-      FROM xp_events
-      WHERE userId = ${ctx.user.id} AND createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY DATE(createdAt)
-      ORDER BY date ASC
-    `) as any;
+      // Last 10 completed exams
+      db.select({
+        id: exams.id,
+        accuracy: exams.accuracy,
+        correctAnswers: exams.correctAnswers,
+        totalQuestions: exams.totalQuestions,
+        xpEarned: exams.xpEarned,
+        timeSpentSeconds: exams.timeSpentSeconds,
+        createdAt: exams.createdAt,
+        disciplineName: disciplines.namePt,
+      })
+        .from(exams)
+        .leftJoin(disciplines, eq(exams.disciplineId, disciplines.id))
+        .where(and(eq(exams.userId, ctx.user.id), eq(exams.status, "completed")))
+        .orderBy(desc(exams.createdAt))
+        .limit(10),
+
+      // Per-subject accuracy from exam answers
+      db.select({
+        subjectName: subjects.namePt,
+        subjectId: subjects.id,
+        disciplineName: disciplines.namePt,
+        disciplineId: disciplines.id,
+        total: sql<number>`count(${examAnswers.id})`,
+        correct: sql<number>`sum(${examAnswers.isCorrect})`,
+        accuracy: accuracyExpr,
+      })
+        .from(examAnswers)
+        .innerJoin(exams, eq(examAnswers.examId, exams.id))
+        .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+        .innerJoin(subjects, eq(questions.subjectId, subjects.id))
+        .innerJoin(disciplines, eq(questions.disciplineId, disciplines.id))
+        .where(and(
+          eq(exams.userId, ctx.user.id),
+          eq(exams.status, "completed"),
+          isNotNull(questions.subjectId),
+        ))
+        .groupBy(subjects.id, subjects.namePt, disciplines.id, disciplines.namePt)
+        .orderBy(sql`accuracy ASC`),
+
+      // XP history — last 30 days grouped by date
+      db.select({
+        date: sql<string>`DATE(${xpEvents.createdAt})`,
+        xp: sql<number>`SUM(${xpEvents.amount})`,
+      })
+        .from(xpEvents)
+        .where(and(
+          eq(xpEvents.userId, ctx.user.id),
+          gte(xpEvents.createdAt, thirtyDaysAgo),
+        ))
+        .groupBy(sql`DATE(${xpEvents.createdAt})`)
+        .orderBy(sql`DATE(${xpEvents.createdAt}) ASC`),
+    ]);
 
     return {
-      overall: (overall as any[])[0],
-      byDiscipline: byDiscipline as any[],
-      bySubject: bySubject as any[],
-      recentExams: recentExams as any[],
-      xpHistory: xpHistory as any[],
+      overall: overall[0] ?? null,
+      byDiscipline,
+      bySubject,
+      recentExams,
+      xpHistory,
     };
   }),
 });

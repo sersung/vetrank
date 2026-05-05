@@ -141,7 +141,7 @@ export const adminRouter = router({
         );
       }
       if (input.plan !== "all") {
-        query = query.where(eq(users.plan, input.plan as any));
+        query = query.where(eq(users.plan, input.plan));
       }
 
       const allUsers = await query.orderBy(desc(users.createdAt));
@@ -184,13 +184,13 @@ export const adminRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const updateData: Record<string, unknown> = { plan: input.plan };
-      if (input.role) updateData.role = input.role;
+      const setData: Partial<typeof users.$inferInsert> = { plan: input.plan };
+      if (input.role) setData.role = input.role;
       if (input.plan === "premium") {
-        updateData.premiumStartedAt = new Date();
-        updateData.premiumEndsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        setData.premiumStartedAt = new Date();
+        setData.premiumEndsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
-      await db.update(users).set(updateData as any).where(eq(users.id, input.userId));
+      await db.update(users).set(setData).where(eq(users.id, input.userId));
       return { success: true };
     }),
 });

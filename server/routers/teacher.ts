@@ -2,8 +2,8 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { questions, teacherPermissions, activityLog, disciplines, subjects } from "../../drizzle/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { questions, teacherPermissions, activityLog, disciplines, subjects, users } from "../../drizzle/schema";
+import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 // Middleware: must be teacher, coordinator, superuser, or admin
@@ -108,15 +108,17 @@ export const teacherRouter = router({
         status,
       });
 
+      const questionId = (result as { insertId: number }).insertId;
+
       await db.insert(activityLog).values({
         userId: ctx.user.id,
         action: "create_question",
         entityType: "question",
-        entityId: (result as any).insertId,
+        entityId: questionId,
         details: { disciplineId: input.disciplineId, status },
       });
 
-      return { success: true, questionId: (result as any).insertId, status };
+      return { success: true, questionId, status };
     }),
 
   // ── Get questions created by this teacher ──────────────────────────────────
@@ -129,18 +131,28 @@ export const teacherRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const rows = await db.execute(`
-        SELECT q.id, q.textPt, q.difficulty, q.questionModel, q.status, q.createdAt,
-          d.namePt as disciplineName, s.namePt as subjectName
-        FROM questions q
-        LEFT JOIN disciplines d ON q.disciplineId = d.id
-        LEFT JOIN subjects s ON q.subjectId = s.id
-        WHERE q.createdBy = ${ctx.user.id}
-        ${input.status !== "all" ? `AND q.status = '${input.status}'` : ""}
-        ORDER BY q.createdAt DESC
-        LIMIT ${input.limit} OFFSET ${input.offset}
-      `) as any;
-      return rows[0] as any[];
+
+      const conditions = [eq(questions.createdBy, ctx.user.id)] as ReturnType<typeof eq>[];
+      if (input.status !== "all") conditions.push(eq(questions.status, input.status));
+
+      return db
+        .select({
+          id: questions.id,
+          textPt: questions.textPt,
+          difficulty: questions.difficulty,
+          questionModel: questions.questionModel,
+          status: questions.status,
+          createdAt: questions.createdAt,
+          disciplineName: disciplines.namePt,
+          subjectName: subjects.namePt,
+        })
+        .from(questions)
+        .leftJoin(disciplines, eq(questions.disciplineId, disciplines.id))
+        .leftJoin(subjects, eq(questions.subjectId, subjects.id))
+        .where(and(...conditions))
+        .orderBy(desc(questions.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
     }),
 
   // ── Get pending questions for validation ───────────────────────────────────
@@ -157,7 +169,6 @@ export const teacherRouter = router({
       // Get allowed discipline IDs for validation
       let allowedDisciplineIds: number[] = [];
       if (["admin", "coordinator", "superuser"].includes(ctx.user.role)) {
-        // All disciplines
         const allDisc = await db.select({ id: disciplines.id }).from(disciplines);
         allowedDisciplineIds = allDisc.map(d => d.id);
       } else {
@@ -173,24 +184,33 @@ export const teacherRouter = router({
 
       if (allowedDisciplineIds.length === 0) return [];
 
-      const discFilter = input.disciplineId
-        ? `AND q.disciplineId = ${input.disciplineId}`
-        : `AND q.disciplineId IN (${allowedDisciplineIds.join(",")})`;
+      const disciplineFilter = input.disciplineId
+        ? eq(questions.disciplineId, input.disciplineId)
+        : inArray(questions.disciplineId, allowedDisciplineIds);
 
-      const rows = await db.execute(`
-        SELECT q.id, q.textPt, q.difficulty, q.questionModel, q.options, q.correctOption,
-          q.explanationPt, q.imageUrl, q.createdAt,
-          d.namePt as disciplineName, s.namePt as subjectName,
-          u.name as creatorName
-        FROM questions q
-        LEFT JOIN disciplines d ON q.disciplineId = d.id
-        LEFT JOIN subjects s ON q.subjectId = s.id
-        LEFT JOIN users u ON q.createdBy = u.id
-        WHERE q.status = 'pending' AND q.active = 1 ${discFilter}
-        ORDER BY q.createdAt ASC
-        LIMIT ${input.limit} OFFSET ${input.offset}
-      `) as any;
-      return rows[0] as any[];
+      return db
+        .select({
+          id: questions.id,
+          textPt: questions.textPt,
+          difficulty: questions.difficulty,
+          questionModel: questions.questionModel,
+          options: questions.options,
+          correctOption: questions.correctOption,
+          explanationPt: questions.explanationPt,
+          imageUrl: questions.imageUrl,
+          createdAt: questions.createdAt,
+          disciplineName: disciplines.namePt,
+          subjectName: subjects.namePt,
+          creatorName: users.name,
+        })
+        .from(questions)
+        .leftJoin(disciplines, eq(questions.disciplineId, disciplines.id))
+        .leftJoin(subjects, eq(questions.subjectId, subjects.id))
+        .leftJoin(users, eq(questions.createdBy, users.id))
+        .where(and(eq(questions.status, "pending"), eq(questions.active, true), disciplineFilter))
+        .orderBy(asc(questions.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
     }),
 
   // ── Validate (approve/reject) a question ──────────────────────────────────

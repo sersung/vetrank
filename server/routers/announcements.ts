@@ -3,7 +3,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import { announcements, users } from "../../drizzle/schema";
-import { eq, desc, and, lte, or, isNull } from "drizzle-orm";
+import { eq, desc, and, lte, gt, or, isNull } from "drizzle-orm";
 
 const staffProcedure = protectedProcedure.use(({ ctx, next }) => {
   const allowed = ["teacher", "coordinator", "superuser", "admin"];
@@ -24,18 +24,30 @@ export const announcementsRouter = router({
       const db = await getDb();
       if (!db) return [];
       const now = new Date();
-      const rows = await db.execute(`
-        SELECT a.id, a.titlePt, a.titleEn, a.bodyPt, a.bodyEn, a.type, a.pinned,
-          a.scheduledFor, a.expiresAt, a.createdAt, u.name as authorName
-        FROM announcements a
-        LEFT JOIN users u ON a.authorId = u.id
-        WHERE a.active = 1
-          AND (a.scheduledFor IS NULL OR a.scheduledFor <= NOW())
-          AND (a.expiresAt IS NULL OR a.expiresAt > NOW())
-        ORDER BY a.pinned DESC, a.createdAt DESC
-        LIMIT ${input.limit} OFFSET ${input.offset}
-      `) as any;
-      return rows[0] as any[];
+      return db
+        .select({
+          id: announcements.id,
+          titlePt: announcements.titlePt,
+          titleEn: announcements.titleEn,
+          bodyPt: announcements.bodyPt,
+          bodyEn: announcements.bodyEn,
+          type: announcements.type,
+          pinned: announcements.pinned,
+          scheduledFor: announcements.scheduledFor,
+          expiresAt: announcements.expiresAt,
+          createdAt: announcements.createdAt,
+          authorName: users.name,
+        })
+        .from(announcements)
+        .leftJoin(users, eq(announcements.authorId, users.id))
+        .where(and(
+          eq(announcements.active, true),
+          or(isNull(announcements.scheduledFor), lte(announcements.scheduledFor, now)),
+          or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+        ))
+        .orderBy(desc(announcements.pinned), desc(announcements.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
     }),
 
   // ── Staff: create announcement ─────────────────────────────────────────────
@@ -85,7 +97,7 @@ export const announcementsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const { id, scheduledFor, expiresAt, ...rest } = input;
-      const updateData: any = { ...rest };
+      const updateData: Partial<typeof announcements.$inferInsert> = { ...rest };
       if (scheduledFor !== undefined) updateData.scheduledFor = scheduledFor ? new Date(scheduledFor) : null;
       if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
       await db.update(announcements).set(updateData).where(eq(announcements.id, id));
@@ -108,14 +120,23 @@ export const announcementsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      const rows = await db.execute(`
-        SELECT a.id, a.titlePt, a.bodyPt, a.type, a.pinned, a.active,
-          a.scheduledFor, a.expiresAt, a.createdAt, u.name as authorName
-        FROM announcements a
-        LEFT JOIN users u ON a.authorId = u.id
-        ORDER BY a.createdAt DESC
-        LIMIT ${input.limit} OFFSET ${input.offset}
-      `) as any;
-      return rows[0] as any[];
+      return db
+        .select({
+          id: announcements.id,
+          titlePt: announcements.titlePt,
+          bodyPt: announcements.bodyPt,
+          type: announcements.type,
+          pinned: announcements.pinned,
+          active: announcements.active,
+          scheduledFor: announcements.scheduledFor,
+          expiresAt: announcements.expiresAt,
+          createdAt: announcements.createdAt,
+          authorName: users.name,
+        })
+        .from(announcements)
+        .leftJoin(users, eq(announcements.authorId, users.id))
+        .orderBy(desc(announcements.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
     }),
 });
