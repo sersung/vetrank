@@ -35,6 +35,30 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
+// Allowed origins for payment redirect URLs (same-origin only)
+const ALLOWED_PAYMENT_URL_ORIGINS = (process.env.APP_ORIGIN ?? "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean);
+
+function assertSameOrigin(url: string, label: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `${label} is not a valid URL` });
+  }
+  if (
+    ALLOWED_PAYMENT_URL_ORIGINS.length > 0 &&
+    !ALLOWED_PAYMENT_URL_ORIGINS.includes(parsed.origin)
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `${label} must be on the application domain`,
+    });
+  }
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 export const paymentRouter = router({
   // Create a Mercado Pago preference (checkout session)
@@ -46,6 +70,9 @@ export const paymentRouter = router({
       pendingUrl: z.string().url(),
     }))
     .mutation(async ({ ctx, input }) => {
+      assertSameOrigin(input.successUrl, "successUrl");
+      assertSameOrigin(input.failureUrl, "failureUrl");
+      assertSameOrigin(input.pendingUrl, "pendingUrl");
       const plan = PLANS[input.plan];
       const client = getMPClient();
       const preference = new Preference(client);

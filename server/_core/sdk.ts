@@ -38,20 +38,41 @@ class OAuthService {
     }
   }
 
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
+  private decodeState(state: string, allowedOrigin?: string): string {
+    let redirectUri: string;
+    try {
+      redirectUri = atob(state);
+    } catch {
+      throw new Error("Invalid state parameter encoding");
+    }
+
+    // Reject non-HTTP schemes to prevent javascript:/data:/etc. injection
+    if (!/^https?:\/\//i.test(redirectUri)) {
+      throw new Error("Invalid redirect URI scheme in state parameter");
+    }
+
+    // Validate that the redirect URI belongs to the expected origin
+    if (allowedOrigin) {
+      const parsed = new URL(redirectUri);
+      const expected = new URL(allowedOrigin);
+      if (parsed.host !== expected.host) {
+        throw new Error(`Redirect URI host mismatch: expected ${expected.host}, got ${parsed.host}`);
+      }
+    }
+
     return redirectUri;
   }
 
   async getTokenByCode(
     code: string,
-    state: string
+    state: string,
+    allowedOrigin?: string
   ): Promise<ExchangeTokenResponse> {
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
       code,
-      redirectUri: this.decodeState(state),
+      redirectUri: this.decodeState(state, allowedOrigin),
     };
 
     const { data } = await this.client.post<ExchangeTokenResponse>(
@@ -113,16 +134,12 @@ class SDKServer {
     return first ? first.toLowerCase() : null;
   }
 
-  /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-   */
   async exchangeCodeForToken(
     code: string,
-    state: string
+    state: string,
+    allowedOrigin?: string
   ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
+    return this.oauthService.getTokenByCode(code, state, allowedOrigin);
   }
 
   /**

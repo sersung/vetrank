@@ -20,7 +20,8 @@ export function registerOAuthRoutes(app: Express) {
     }
 
     try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+      const origin = `${req.protocol}://${req.get("host")}`;
+      const tokenResponse = await sdk.exchangeCodeForToken(code, state, origin);
       const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
 
       if (!userInfo.openId) {
