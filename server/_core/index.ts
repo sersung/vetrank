@@ -37,6 +37,15 @@ const questionLimiter = rateLimit({
 /** Detect bulk scraping: block IPs that fetch >30 questions in 10 seconds */
 const scrapeDetector = (() => {
   const counts = new Map<string, { count: number; resetAt: number }>();
+
+  // Purge stale entries every minute to prevent unbounded memory growth.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of counts) {
+      if (now > entry.resetAt) counts.delete(ip);
+    }
+  }, 60_000).unref();
+
   return (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip ?? "unknown";
     const now = Date.now();

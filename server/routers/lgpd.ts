@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { getDb } from "../db";
+import { getDb, addXp } from "../db";
 import { users, practiceSessions, questions, disciplines, subjects } from "../../drizzle/schema";
 import { eq, and, desc, sql, not, inArray } from "drizzle-orm";
 
@@ -101,11 +101,15 @@ export const practiceRouter = router({
         selectedOption: input.selectedOption,
         isCorrect: input.isCorrect,
       });
-      // Award small XP for practice
+      // Update answer stats via drizzle and award XP through the proper channel
+      // so xpEvents, weeklyXp, monthlyXp and badge checks are all triggered.
+      await db.update(users).set({
+        totalQuestions: sql`${users.totalQuestions} + 1`,
+        ...(input.isCorrect ? { totalCorrect: sql`${users.totalCorrect} + 1` } : {}),
+      }).where(eq(users.id, ctx.user.id));
+
       if (input.isCorrect) {
-        await db.execute(`UPDATE users SET xp = xp + 2, totalCorrect = totalCorrect + 1, totalQuestions = totalQuestions + 1 WHERE id = ${ctx.user.id}`);
-      } else {
-        await db.execute(`UPDATE users SET totalQuestions = totalQuestions + 1 WHERE id = ${ctx.user.id}`);
+        await addXp(ctx.user.id, 2, "Practice session correct answer");
       }
       return { success: true };
     }),

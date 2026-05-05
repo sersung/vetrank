@@ -12,8 +12,8 @@ import {
   updateSubject,
 } from "../db";
 import { getDb } from "../db";
-import { users } from "../../drizzle/schema";
-import { desc, like, or, eq } from "drizzle-orm";
+import { users, exams } from "../../drizzle/schema";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -159,16 +159,16 @@ export const adminRouter = router({
       const result = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
       if (!result[0]) throw new TRPCError({ code: "NOT_FOUND" });
       // Get exam stats
-      const conn = db as any;
-      const examStats = await conn.execute(
-        `SELECT COUNT(*) as totalExams, COALESCE(SUM(correctAnswers),0) as totalCorrect, COALESCE(SUM(totalQuestions),0) as totalQ FROM exams WHERE userId = ? AND status = 'completed'`,
-        [input.userId]
-      );
-      const stats = examStats[0]?.[0] || { totalExams: 0, totalCorrect: 0, totalQ: 0 };
-      const accuracy = stats.totalQ > 0 ? Math.round((stats.totalCorrect / stats.totalQ) * 100) : 0;
+      const [stats] = await db.select({
+        totalExams: sql<number>`count(*)`,
+        totalCorrect: sql<number>`coalesce(sum(${exams.correctAnswers}), 0)`,
+        totalQ: sql<number>`coalesce(sum(${exams.totalQuestions}), 0)`,
+      }).from(exams).where(and(eq(exams.userId, input.userId), eq(exams.status, 'completed')));
+      const { totalExams = 0, totalCorrect = 0, totalQ = 0 } = stats ?? {};
+      const accuracy = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
       return {
         ...result[0],
-        totalExams: Number(stats.totalExams),
+        totalExams: Number(totalExams),
         accuracy,
       };
     }),
