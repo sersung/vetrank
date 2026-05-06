@@ -27,6 +27,7 @@ import DiscursiveBank from "./pages/DiscursiveBank";
 import Trails from "./pages/Trails";
 import TrailDetail from "./pages/TrailDetail";
 import Referrals from "./pages/Referrals";
+import MySubscription from "./pages/MySubscription";
 import AuthGuard from "./components/AuthGuard";
 
 function Router() {
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/trails">{() => <AuthGuard><Trails /></AuthGuard>}</Route>
       <Route path="/trails/:id">{() => <AuthGuard><TrailDetail /></AuthGuard>}</Route>
       <Route path="/referrals">{() => <AuthGuard><Referrals /></AuthGuard>}</Route>
+      <Route path="/subscription">{() => <AuthGuard><MySubscription /></AuthGuard>}</Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

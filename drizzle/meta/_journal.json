@@ -50,6 +50,13 @@
       "when": 1777924805596,
       "tag": "0006_mean_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1777979721585,
+      "tag": "0007_adorable_epoch",
+      "breakpoints": true
     }
   ]
 }

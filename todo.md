@@ -420,3 +420,57 @@
 - [x] Permitir edição inline de campos antes de importar
 - [x] Integrar AIQuestionExtractor na aba Importar do AdminPanel
 - [x] Integrar AIQuestionExtractor na aba Importar do TeacherPanel
+
+## Gestão de Planos e Pagamentos (Admin) — May 2026
+
+### Schema & DB
+- [x] Schema: adicionar colunas planStatus (free/trial/premium/expired), trialStartedAt, trialEndsAt, subscriptionStartedAt, subscriptionEndsAt, subscriptionPlan na tabela users
+- [x] Schema: criar tabela payments (id, userId, amount, currency, status, paymentMethod, externalId, metadata, receiptUrl, failureReason, createdAt, updatedAt)
+- [x] Migração SQL aplicada via webdev_execute_sql
+
+### Backend
+- [x] procedure admin.listUsersWithPlans: usuários com status, dias restantes, último pagamento
+- [x] procedure admin.updateUserPlan: altera planStatus, estende trial (trialEndsAt), ativa/desativa premium, define subscriptionEndsAt
+- [x] procedure admin.listPayments: histórico com filtro de status (all/pending/approved/rejected/cancelled)
+- [x] procedure admin.updatePaymentStatus: atualizar status manualmente + motivo de recusa
+- [x] procedure user.mySubscription: status do plano, dias restantes, último pagamento aprovado, dados do recibo
+
+### AdminPanel
+- [x] Nova aba "Planos" no AdminPanel
+- [x] Tabela de usuários com colunas: nome, email, status do plano, dias de trial restantes, vencimento do plano pago
+- [x] Toggle Premium/Free por usuário (com confirmação)
+- [x] Botão "Estender Trial" com seletor de dias (+7, +14, +30 ou personalizado)
+- [x] Painel de pagamentos com filtros: todos/pendente/aprovado/recusado/cancelado
+- [x] Exibir motivo de recusa quando status=rejected
+- [x] Botão para marcar pagamento como aprovado/recusado manualmente
+
+### Página Minha Assinatura (usuário)
+- [x] Rota /subscription na App.tsx
+- [x] Card de status: plano atual, dias restantes, data de vencimento
+- [x] Card de último pagamento: valor, data, método, status
+- [x] Recibo HTML imprimível do último pagamento aprovado
+- [x] Link para recibo na navbar/perfil
+
+## Imagens em Questões — May 2026
+
+### Schema & DB
+- [x] Adicionar campo imageUrl (text, nullable) na tabela questions
+- [x] Adicionar campo imageUrl (text, nullable) na tabela discursive_questions
+- [x] Migração SQL aplicada
+
+### Backend
+- [x] Instalar sharp para processamento de imagens no servidor
+- [x] procedure questions.uploadImage: recebe base64, redimensiona para max 1200px, converte para WebP, salva no S3, retorna URL
+- [x] Atualizar procedures create/update de questions para aceitar imageUrl
+- [x] Atualizar procedures create/update de discursive_questions para aceitar imageUrl
+
+### Frontend
+- [x] Componente QuestionImageUpload.tsx: drag-and-drop, preview, indicador de compressão (tamanho antes/depois)
+- [ ] Integrar QuestionImageUpload no formulário de criação/edição de questões no AdminPanel
+- [ ] Integrar QuestionImageUpload no formulário do TeacherPanel
+- [ ] Exibir imagem nas questões durante prática (PracticeMode)
+- [ ] Exibir imagem nas questões durante simulado (ExamPage)
+- [ ] Exibir imagem no banco de questões (QuestionBank)
+- [ ] Exibir imagem no banco de discursivas (DiscursiveBank)
+- [x] Suporte a imageUrl em CSV/XLSX/JSON no importador (campo opcional, aceita URL externa)
+- [x] Documentar campo imageUrl nos templates de importação (CSV e XLSX)

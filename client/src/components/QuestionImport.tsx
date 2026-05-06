@@ -26,7 +26,7 @@ import {
   Eye,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types ---
 type QuestionType =
   | "multiple_choice"
   | "assertion_reason"
@@ -59,6 +59,7 @@ export interface ParsedMCQuestion {
   explanationPt?: string;
   assertion1?: string;
   assertion2?: string;
+  imageUrl?: string;
   _rowIndex: number;
   _errors: string[];
   _valid: boolean;
@@ -75,12 +76,13 @@ interface ParsedDiscursiveQuestion {
   difficulty: "easy" | "medium" | "hard";
   expectedAnswerPt: string;
   expectedAnswerEn?: string;
+  imageUrl?: string;
   _rowIndex: number;
   _errors: string[];
   _valid: boolean;
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+// --- Validation ---
 const VALID_DIFFICULTIES = ["easy", "medium", "hard"];
 const VALID_CORRECT_OPTIONS = ["A", "B", "C", "D", "E"];
 const VALID_QUESTION_TYPES: string[] = [
@@ -141,6 +143,7 @@ function validateMCRow(row: Record<string, unknown>, index: number): ParsedMCQue
     explanationPt: row.explanationPt ? String(row.explanationPt) : undefined,
     assertion1: row.assertion1 ? String(row.assertion1) : undefined,
     assertion2: row.assertion2 ? String(row.assertion2) : undefined,
+    imageUrl: row.imageUrl ? String(row.imageUrl) : undefined,
     _rowIndex: index + 1,
     _errors: errors,
     _valid: errors.length === 0,
@@ -173,18 +176,19 @@ function validateDiscursiveRow(row: Record<string, unknown>, index: number): Par
     difficulty: difficulty as "easy" | "medium" | "hard",
     expectedAnswerPt,
     expectedAnswerEn: row.expectedAnswerEn ? String(row.expectedAnswerEn) : undefined,
+    imageUrl: row.imageUrl ? String(row.imageUrl) : undefined,
     _rowIndex: index + 1,
     _errors: errors,
     _valid: errors.length === 0,
   };
 }
 
-// ─── Template generators ──────────────────────────────────────────────────────
+// --- Template generators ---
 function downloadMCTemplate(format: "csv" | "xlsx") {
   const headers = [
     "textPt", "textEn", "disciplineId", "subjectId", "subjectTag", "author", "year",
     "difficulty", "questionType", "optA", "optB", "optC", "optD", "optE",
-    "correctOption", "explanationPt", "assertion1", "assertion2",
+    "correctOption", "explanationPt", "assertion1", "assertion2", "imageUrl",
   ];
   const example = [
     "Qual é a função do fígado na digestão?",
@@ -192,8 +196,8 @@ function downloadMCTemplate(format: "csv" | "xlsx") {
     "1", "2", "Digestão", "Prof. Silva", "2023",
     "medium", "multiple_choice",
     "Produção de bile", "Absorção de nutrientes", "Filtração do sangue",
-    "Produção de insulina", "Armazenamento de glicogênio",
-    "A", "O fígado produz bile que emulsifica gorduras.", "", "",
+    "Produção de insulina", "Armazenamento de glicôgenio",
+    "A", "O fígado produz bile que emulsifica gorduras.", "", "", "",
   ];
 
   if (format === "csv") {
@@ -216,7 +220,7 @@ function downloadMCTemplate(format: "csv" | "xlsx") {
 function downloadDiscursiveTemplate(format: "csv" | "xlsx") {
   const headers = [
     "textPt", "textEn", "disciplineId", "subjectId", "subjectTag", "author", "year",
-    "difficulty", "expectedAnswerPt", "expectedAnswerEn",
+    "difficulty", "expectedAnswerPt", "expectedAnswerEn", "imageUrl",
   ];
   const example = [
     "Descreva o mecanismo de ação da insulina.",
@@ -225,6 +229,7 @@ function downloadDiscursiveTemplate(format: "csv" | "xlsx") {
     "hard",
     "A insulina se liga ao receptor tirosina quinase, ativando a cascata de sinalização que promove a captação de glicose pelas células.",
     "Insulin binds to tyrosine kinase receptor, activating the signaling cascade that promotes glucose uptake by cells.",
+    "",
   ];
 
   if (format === "csv") {
@@ -244,7 +249,7 @@ function downloadDiscursiveTemplate(format: "csv" | "xlsx") {
   }
 }
 
-// ─── Template download section ────────────────────────────────────────────────
+// --- Template download section ---
 function TemplateDownloadSection({ type }: { type: "multiple_choice" | "discursive" }) {
   return (
     <Card className="border-dashed">
@@ -326,7 +331,7 @@ function TemplateDownloadSection({ type }: { type: "multiple_choice" | "discursi
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// --- Main Component ---
 interface QuestionImportProps {
   onImportComplete?: (count: number) => void;
   /** Pre-loaded rows from AI extraction — shown immediately in preview */
@@ -354,7 +359,7 @@ export function QuestionImport({ onImportComplete, preloadedRows }: QuestionImpo
   const bulkImport = trpc.questions.bulkImport.useMutation();
   const utils = trpc.useUtils();
 
-  // ── Parse file ──────────────────────────────────────────────────────────────
+  // --- Parse file ---
   const processRows = useCallback((rawRows: Record<string, unknown>[]) => {
     if (importType === "multiple_choice") {
       const parsed = rawRows.map((r, i) => validateMCRow(r, i));
@@ -418,7 +423,7 @@ export function QuestionImport({ onImportComplete, preloadedRows }: QuestionImpo
     if (file) parseFile(file);
   };
 
-  // ── Import ──────────────────────────────────────────────────────────────────
+  // --- Import ---
   const handleImport = async () => {
     setIsImporting(true);
     try {
@@ -449,6 +454,7 @@ export function QuestionImport({ onImportComplete, preloadedRows }: QuestionImpo
           explanationPt: r.explanationPt,
           assertion1: r.assertion1,
           assertion2: r.assertion2,
+          imageUrl: r.imageUrl,
         }));
         const result = await bulkImport.mutateAsync({ questions: payload });
         toast.success(`${result.imported} questões importadas com sucesso`);

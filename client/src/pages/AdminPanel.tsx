@@ -22,11 +22,13 @@ import { useLanguage, useT } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   BookOpen,
   Brain,
   Calendar,
   CheckCircle,
   ClipboardList,
+  CreditCard,
   Crown,
   Database,
   Edit,
@@ -34,10 +36,13 @@ import {
   Loader2,
   Mail,
   Plus,
+  RefreshCw,
   Send,
   Shield,
   Sparkles,
+  Timer,
   Trash2,
+  TrendingUp,
   Upload,
   UserCheck,
   Users,
@@ -585,6 +590,10 @@ export default function AdminPanel() {
             <TabsTrigger value="validacao" className="font-sans gap-1">
               <ClipboardList className="h-3.5 w-3.5" />
               Validação
+            </TabsTrigger>
+            <TabsTrigger value="planos" className="font-sans gap-1">
+              <CreditCard className="h-3.5 w-3.5" />
+              Planos
             </TabsTrigger>
           </TabsList>
 
@@ -1251,6 +1260,11 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
+          {/* Planos tab */}
+          <TabsContent value="planos">
+            <PlanosTab />
+          </TabsContent>
+
         </Tabs>
       </div>
 
@@ -1640,6 +1654,312 @@ function ImportTab({ onImportComplete }: { onImportComplete: () => void }) {
           preloadedRows={preloadedRows.length > 0 ? preloadedRows : undefined}
         />
       )}
+    </div>
+  );
+}
+
+// ─── PlanosTab ────────────────────────────────────────────────────────────────
+function PlanosTab() {
+  const [activeSection, setActiveSection] = useState<"users" | "payments">("users");
+  const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState<"all" | "free" | "trial" | "premium" | "expired">("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<"all" | "pending" | "approved" | "rejected" | "cancelled" | "refunded">("all");
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [extendDays, setExtendDays] = useState<number>(7);
+  const [extendUserId, setExtendUserId] = useState<number | null>(null);
+  const [showExtendDialog, setShowExtendDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [newPayment, setNewPayment] = useState({ amount: "", planType: "monthly" as "monthly" | "annual", paymentMethod: "manual", notes: "" });
+
+  const usersInput = useMemo(() => ({ page: 1, limit: 100, search: search || undefined, planFilter }), [search, planFilter]);
+  const paymentsInput = useMemo(() => ({ page: 1, limit: 100, status: paymentStatusFilter, search: paymentSearch || undefined }), [paymentStatusFilter, paymentSearch]);
+
+  const { data: usersData, refetch: refetchUsers, isLoading: usersLoading } = trpc.plans.listUsersWithPlans.useQuery(usersInput);
+  const { data: paymentsData, refetch: refetchPayments, isLoading: paymentsLoading } = trpc.plans.listPayments.useQuery(paymentsInput);
+
+  const updatePlan = trpc.plans.updateUserPlan.useMutation({ onSuccess: () => { toast.success("Plano atualizado"); refetchUsers(); } });
+  const extendTrial = trpc.plans.extendTrial.useMutation({ onSuccess: () => { toast.success("Trial estendido"); setShowExtendDialog(false); refetchUsers(); } });
+  const updatePayment = trpc.plans.updatePaymentStatus.useMutation({ onSuccess: () => { toast.success("Pagamento atualizado"); refetchPayments(); refetchUsers(); } });
+  const createPayment = trpc.plans.createPaymentRecord.useMutation({ onSuccess: () => { toast.success("Registro criado"); setShowPaymentDialog(false); refetchPayments(); refetchUsers(); } });
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      active: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+      trial: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      free: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+      expired: "bg-red-500/20 text-red-400 border-red-500/30",
+      premium: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    };
+    const labels: Record<string, string> = { active: "Premium Ativo", trial: "Trial", free: "Free", expired: "Expirado", premium: "Premium" };
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${map[status] ?? map.free}`}>{labels[status] ?? status}</span>;
+  };
+
+  const paymentBadge = (status: string) => {
+    const map: Record<string, string> = {
+      approved: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+      pending: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+      rejected: "bg-red-500/20 text-red-400 border-red-500/30",
+      cancelled: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+      refunded: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    };
+    const labels: Record<string, string> = { approved: "Aprovado", pending: "Pendente", rejected: "Recusado", cancelled: "Cancelado", refunded: "Reembolsado" };
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border font-medium ${map[status] ?? map.pending}`}>{labels[status] ?? status}</span>;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Section toggle */}
+      <div className="flex gap-2">
+        <Button size="sm" variant={activeSection === "users" ? "default" : "outline"} onClick={() => setActiveSection("users")} className="gap-1.5">
+          <Users className="h-3.5 w-3.5" /> Usuários e Planos
+        </Button>
+        <Button size="sm" variant={activeSection === "payments" ? "default" : "outline"} onClick={() => setActiveSection("payments")} className="gap-1.5">
+          <CreditCard className="h-3.5 w-3.5" /> Pagamentos
+        </Button>
+      </div>
+
+      {/* ── Users section ── */}
+      {activeSection === "users" && (
+        <div className="space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            <Input placeholder="Buscar por nome ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs font-sans bg-background text-sm" />
+            <Select value={planFilter} onValueChange={(v) => setPlanFilter(v as any)}>
+              <SelectTrigger className="w-40 font-sans bg-background text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os planos</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
+                <SelectItem value="premium">Premium</SelectItem>
+                <SelectItem value="expired">Expirados</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" onClick={() => refetchUsers()} className="gap-1"><RefreshCw className="h-3 w-3" /> Atualizar</Button>
+          </div>
+
+          {usersLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="rounded-lg border border-border/50 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Usuário</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Trial</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Vencimento Premium</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(usersData?.users ?? []).map((u) => (
+                    <tr key={u.id} className="border-t border-border/30 hover:bg-muted/10">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{u.name ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{u.email ?? "—"}</div>
+                      </td>
+                      <td className="px-3 py-2">{statusBadge((u as any).status)}</td>
+                      <td className="px-3 py-2">
+                        {u.trialEndsAt ? (
+                          <div className="text-xs">
+                            <div>{(u as any).trialDays != null ? `${(u as any).trialDays} dias restantes` : "—"}</div>
+                            <div className="text-muted-foreground">{new Date(u.trialEndsAt).toLocaleDateString("pt-BR")}</div>
+                          </div>
+                        ) : <span className="text-muted-foreground text-xs">Não iniciado</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        {u.premiumEndsAt ? (
+                          <div className="text-xs">
+                            <div className={(u as any).premiumDays === 0 ? "text-red-400" : ""}>{(u as any).premiumDays != null ? `${(u as any).premiumDays} dias` : "—"}</div>
+                            <div className="text-muted-foreground">{new Date(u.premiumEndsAt).toLocaleDateString("pt-BR")}</div>
+                          </div>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 flex-wrap">
+                          {u.plan !== "premium" ? (
+                            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                              onClick={() => updatePlan.mutate({ userId: u.id, plan: "premium", planType: "monthly", durationDays: 30 })}>
+                              <Crown className="h-3 w-3" /> Premium
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-zinc-500/40 text-zinc-400 hover:bg-zinc-500/10"
+                              onClick={() => updatePlan.mutate({ userId: u.id, plan: "free" })}>
+                              <XCircle className="h-3 w-3" /> Revogar
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="h-6 text-xs gap-1"
+                            onClick={() => { setExtendUserId(u.id); setShowExtendDialog(true); }}>
+                            <Timer className="h-3 w-3" /> Trial
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+                            onClick={() => { setSelectedUserId(u.id); setShowPaymentDialog(true); }}>
+                            <CreditCard className="h-3 w-3" /> Pagamento
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(usersData?.users ?? []).length === 0 && (
+                    <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground text-sm">Nenhum usuário encontrado</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Payments section ── */}
+      {activeSection === "payments" && (
+        <div className="space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            <Input placeholder="Buscar por nome ou email..." value={paymentSearch} onChange={(e) => setPaymentSearch(e.target.value)} className="max-w-xs font-sans bg-background text-sm" />
+            <Select value={paymentStatusFilter} onValueChange={(v) => setPaymentStatusFilter(v as any)}>
+              <SelectTrigger className="w-44 font-sans bg-background text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="approved">Aprovado</SelectItem>
+                <SelectItem value="rejected">Recusado</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+                <SelectItem value="refunded">Reembolsado</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" onClick={() => refetchPayments()} className="gap-1"><RefreshCw className="h-3 w-3" /> Atualizar</Button>
+          </div>
+
+          {paymentsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="rounded-lg border border-border/50 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Usuário</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Valor</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Plano</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Método</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Data</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(paymentsData?.payments ?? []).map((p: any) => (
+                    <tr key={p.id} className="border-t border-border/30 hover:bg-muted/10">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{p.userName ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">{p.userEmail ?? "—"}</div>
+                      </td>
+                      <td className="px-3 py-2 font-medium">R$ {Number(p.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-xs capitalize">{p.planType ?? "—"}</td>
+                      <td className="px-3 py-2 text-xs capitalize">{p.paymentMethod ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {paymentBadge(p.status)}
+                        {p.failureReason && <div className="text-xs text-red-400 mt-0.5 max-w-[160px] truncate" title={p.failureReason}>{p.failureReason}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("pt-BR")}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 flex-wrap">
+                          {p.status === "pending" && (
+                            <>
+                              <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                                onClick={() => updatePayment.mutate({ paymentId: p.id, status: "approved", activatePlan: true, planType: p.planType ?? "monthly" })}>
+                                <CheckCircle className="h-3 w-3" /> Aprovar
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-red-500/40 text-red-400 hover:bg-red-500/10"
+                                onClick={() => { const reason = prompt("Motivo da recusa:"); if (reason !== null) updatePayment.mutate({ paymentId: p.id, status: "rejected", failureReason: reason }); }}>
+                                <XCircle className="h-3 w-3" /> Recusar
+                              </Button>
+                            </>
+                          )}
+                          {p.status === "approved" && (
+                            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+                              onClick={() => updatePayment.mutate({ paymentId: p.id, status: "refunded" })}>
+                              <RefreshCw className="h-3 w-3" /> Reembolsar
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(paymentsData?.payments ?? []).length === 0 && (
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-muted-foreground text-sm">Nenhum pagamento encontrado</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Extend Trial Dialog */}
+      <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
+        <DialogContent className="bg-card border-border/50 max-w-sm">
+          <DialogHeader><DialogTitle className="font-serif">Estender Trial</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Quantos dias deseja adicionar ao trial do usuário?</p>
+            <div className="flex gap-2">
+              {[7, 14, 30].map((d) => (
+                <Button key={d} size="sm" variant={extendDays === d ? "default" : "outline"} onClick={() => setExtendDays(d)}>{d} dias</Button>
+              ))}
+              <Input type="number" min={1} max={365} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} className="w-20 font-sans bg-background text-sm" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowExtendDialog(false)}>Cancelar</Button>
+              <Button onClick={() => extendUserId && extendTrial.mutate({ userId: extendUserId, days: extendDays })} disabled={extendTrial.isPending}>
+                {extendTrial.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Payment Record Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="bg-card border-border/50 max-w-sm">
+          <DialogHeader><DialogTitle className="font-serif">Registrar Pagamento</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Valor (R$)</label>
+              <Input type="number" min={0} step={0.01} value={newPayment.amount} onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))} className="font-sans bg-background text-sm" placeholder="Ex: 39.90" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Plano</label>
+              <Select value={newPayment.planType} onValueChange={(v) => setNewPayment((p) => ({ ...p, planType: v as any }))}>
+                <SelectTrigger className="font-sans bg-background text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Mensal (R$ 39,90)</SelectItem>
+                  <SelectItem value="annual">Anual (R$ 299,00)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Método</label>
+              <Select value={newPayment.paymentMethod} onValueChange={(v) => setNewPayment((p) => ({ ...p, paymentMethod: v }))}>
+                <SelectTrigger className="font-sans bg-background text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Observações</label>
+              <Input value={newPayment.notes} onChange={(e) => setNewPayment((p) => ({ ...p, notes: e.target.value }))} className="font-sans bg-background text-sm" placeholder="Opcional" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>Cancelar</Button>
+              <Button onClick={() => selectedUserId && createPayment.mutate({ userId: selectedUserId, amount: Number(newPayment.amount), planType: newPayment.planType, paymentMethod: newPayment.paymentMethod, notes: newPayment.notes || undefined, status: "approved", activatePlan: true })} disabled={createPayment.isPending || !newPayment.amount}>
+                {createPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Registrar e Ativar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

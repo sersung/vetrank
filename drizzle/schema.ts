@@ -30,6 +30,7 @@ export const users = mysqlTable("users", {
   trialEndsAt: timestamp("trialEndsAt"),
   premiumStartedAt: timestamp("premiumStartedAt"),
   premiumEndsAt: timestamp("premiumEndsAt"),
+  subscriptionPlan: mysqlEnum("subscriptionPlan", ["monthly", "annual"]),  // active plan type
   // Stats
   totalExams: int("totalExams").default(0).notNull(),
   totalQuestions: int("totalQuestions").default(0).notNull(),
@@ -325,6 +326,7 @@ export const discursiveQuestions = mysqlTable("discursive_questions", {
   author: varchar("author", { length: 256 }),
   difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
   year: int("year"),
+  imageUrl: varchar("imageUrl", { length: 512 }),
   textPt: text("textPt").notNull(),
   textEn: text("textEn"),
   expectedAnswerPt: text("expectedAnswerPt").notNull(),
@@ -488,3 +490,22 @@ export const questionAssignments = mysqlTable("question_assignments", {
 
 export type QuestionAssignment = typeof questionAssignments.$inferSelect;
 export type InsertQuestionAssignment = typeof questionAssignments.$inferInsert;
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+export const payments = mysqlTable("payments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  amount: float("amount").notNull(),            // in BRL
+  currency: varchar("currency", { length: 3 }).default("BRL").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "cancelled", "refunded"]).default("pending").notNull(),
+  paymentMethod: varchar("paymentMethod", { length: 64 }),  // pix, credit_card, boleto, etc.
+  planType: mysqlEnum("planType", ["monthly", "annual"]),
+  externalId: varchar("externalId", { length: 128 }),       // Mercado Pago preference/payment id
+  failureReason: text("failureReason"),                     // reason when status=rejected
+  metadata: json("metadata"),                               // raw MP response
+  notes: text("notes"),                                     // admin notes
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;
