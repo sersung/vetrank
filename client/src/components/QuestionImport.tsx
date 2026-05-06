@@ -59,6 +59,7 @@ export interface ParsedMCQuestion {
   explanationPt?: string;
   assertion1?: string;
   assertion2?: string;
+  imageUrl?: string;
   _rowIndex: number;
   _errors: string[];
   _valid: boolean;
@@ -75,6 +76,7 @@ interface ParsedDiscursiveQuestion {
   difficulty: "easy" | "medium" | "hard";
   expectedAnswerPt: string;
   expectedAnswerEn?: string;
+  imageUrl?: string;
   _rowIndex: number;
   _errors: string[];
   _valid: boolean;
@@ -141,6 +143,7 @@ function validateMCRow(row: Record<string, unknown>, index: number): ParsedMCQue
     explanationPt: row.explanationPt ? String(row.explanationPt) : undefined,
     assertion1: row.assertion1 ? String(row.assertion1) : undefined,
     assertion2: row.assertion2 ? String(row.assertion2) : undefined,
+    imageUrl: row.imageUrl ? String(row.imageUrl) : undefined,
     _rowIndex: index + 1,
     _errors: errors,
     _valid: errors.length === 0,
@@ -173,6 +176,7 @@ function validateDiscursiveRow(row: Record<string, unknown>, index: number): Par
     difficulty: difficulty as "easy" | "medium" | "hard",
     expectedAnswerPt,
     expectedAnswerEn: row.expectedAnswerEn ? String(row.expectedAnswerEn) : undefined,
+    imageUrl: row.imageUrl ? String(row.imageUrl) : undefined,
     _rowIndex: index + 1,
     _errors: errors,
     _valid: errors.length === 0,
@@ -184,7 +188,7 @@ function downloadMCTemplate(format: "csv" | "xlsx") {
   const headers = [
     "textPt", "textEn", "disciplineId", "subjectId", "subjectTag", "author", "year",
     "difficulty", "questionType", "optA", "optB", "optC", "optD", "optE",
-    "correctOption", "explanationPt", "assertion1", "assertion2",
+    "correctOption", "explanationPt", "assertion1", "assertion2", "imageUrl",
   ];
   const example = [
     "Qual é a função do fígado na digestão?",
@@ -216,7 +220,7 @@ function downloadMCTemplate(format: "csv" | "xlsx") {
 function downloadDiscursiveTemplate(format: "csv" | "xlsx") {
   const headers = [
     "textPt", "textEn", "disciplineId", "subjectId", "subjectTag", "author", "year",
-    "difficulty", "expectedAnswerPt", "expectedAnswerEn",
+    "difficulty", "expectedAnswerPt", "expectedAnswerEn", "imageUrl",
   ];
   const example = [
     "Descreva o mecanismo de ação da insulina.",
@@ -449,6 +453,7 @@ export function QuestionImport({ onImportComplete, preloadedRows }: QuestionImpo
           explanationPt: r.explanationPt,
           assertion1: r.assertion1,
           assertion2: r.assertion2,
+          imageUrl: r.imageUrl,
         }));
         const result = await bulkImport.mutateAsync({ questions: payload });
         toast.success(`${result.imported} questões importadas com sucesso`);

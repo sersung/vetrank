@@ -29,6 +29,7 @@ import Trails from "./pages/Trails";
 import TrailDetail from "./pages/TrailDetail";
 import Referrals from "./pages/Referrals";
 import AuthGuard from "./components/AuthGuard";
+import MySubscription from "./pages/MySubscription";
 
 function Router() {
   return (
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/trails">{() => <AuthGuard><Trails /></AuthGuard>}</Route>
       <Route path="/trails/:id">{() => <AuthGuard><TrailDetail /></AuthGuard>}</Route>
       <Route path="/referrals">{() => <AuthGuard><Referrals /></AuthGuard>}</Route>
+      <Route path="/subscription">{() => <AuthGuard><MySubscription /></AuthGuard>}</Route>
       <Route path="/login" component={Login} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

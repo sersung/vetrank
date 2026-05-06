@@ -17,6 +17,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { trailsRouter } from "./routers/trails";
 import { referralsRouter } from "./routers/referrals";
 import { validationRouter } from "./routers/validation";
+import { plansRouter } from "./routers/plans";
 
 export const appRouter = router({
   system: systemRouter,
@@ -46,6 +47,7 @@ export const appRouter = router({
   trails: trailsRouter,
   referrals: referralsRouter,
   validation: validationRouter,
+  plans: plansRouter,
 });
 
 export type AppRouter = typeof appRouter;

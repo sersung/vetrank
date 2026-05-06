@@ -13,6 +13,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import {
   BookOpen,
   ChevronDown,
+  CreditCard,
   Crown,
   FlaskConical,
   Globe,
@@ -211,6 +212,12 @@ export default function Navbar() {
                     <Link href="/referrals" className="flex items-center gap-2">
                       <Gift className="h-4 w-4" />
                       Indicações
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/subscription" className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Minha Assinatura
                     </Link>
                   </DropdownMenuItem>
                   {roleLinks.map((link) => (

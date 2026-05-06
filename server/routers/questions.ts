@@ -1,5 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { storagePut } from "../storage";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sharp = require("sharp") as any;
 import {
   createQuestion,
   deleteQuestion,
@@ -196,18 +201,55 @@ export const questionsRouter = router({
             assertion1: z.string().optional(),
             assertion2: z.string().optional(),
             isPremium: z.boolean().default(false),
+            imageUrl: z.string().optional(),
           })
         ),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN" });
       let imported = 0;
       for (const q of input.questions) {
         await createQuestion(q as any);
         imported++;
       }
       return { imported };
+    }),
+
+  // Upload and optimize a question image (JPEG/PNG/WebP → WebP, max 1200px wide, quality 80)
+  uploadImage: protectedProcedure
+    .input(
+      z.object({
+        base64: z.string(),
+        filename: z.string().optional(),
+        questionId: z.number().optional(),
+        questionType: z.enum(["mc", "discursive"]).default("mc"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const base64Data = input.base64.replace(/^data:[^;]+;base64,/, "");
+      const inputBuffer = Buffer.from(base64Data, "base64");
+
+      const webpBuffer = await sharp(inputBuffer)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      const filename = (input.filename ?? "question").replace(/\.[^.]+$/, "");
+      const key = `questions/images/${filename}_${Date.now()}.webp`;
+      const { url } = await storagePut(key, webpBuffer, "image/webp");
+
+      if (input.questionId) {
+        if (input.questionType === "discursive") {
+          await updateDiscursiveQuestion(input.questionId, { imageUrl: url } as any);
+        } else {
+          await updateQuestion(input.questionId, { imageUrl: url } as any);
+        }
+      }
+
+      return { url, key };
     }),
 });
 

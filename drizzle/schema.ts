@@ -40,6 +40,8 @@ export const trailStatusEnum = pgEnum("trail_status", ["enrolled", "in_progress"
 export const moduleStatusEnum = pgEnum("module_status", ["locked", "available", "in_progress", "passed", "failed"]);
 export const referralStatusEnum = pgEnum("referral_status", ["pending", "registered", "paid", "expired"]);
 export const referralPlanEnum = pgEnum("referral_plan", ["monthly", "annual"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "approved", "rejected", "cancelled", "refunded"]);
+export const paymentPlanTypeEnum = pgEnum("payment_plan_type", ["monthly", "annual"]);
 export const bonusTypeEnum = pgEnum("bonus_type", ["free_annual"]);
 export const assignmentQuestionTypeEnum = pgEnum("assignment_question_type", ["multiple_choice", "discursive"]);
 export const assignmentStatusEnum = pgEnum("assignment_status", ["pending", "approved", "rejected"]);
@@ -57,6 +59,7 @@ export const users = pgTable("users", {
   streak: integer("streak").default(0).notNull(),
   lastLoginDate: varchar("lastLoginDate", { length: 10 }),
   plan: planEnum("plan").default("free").notNull(),
+  subscriptionPlan: paymentPlanTypeEnum("subscriptionPlan"),
   trialStartedAt: timestamp("trialStartedAt"),
   trialEndsAt: timestamp("trialEndsAt"),
   premiumStartedAt: timestamp("premiumStartedAt"),
@@ -323,6 +326,7 @@ export const discursiveQuestions = pgTable("discursive_questions", {
   author: varchar("author", { length: 256 }),
   difficulty: difficultyEnum("difficulty").notNull(),
   year: integer("year"),
+  imageUrl: varchar("imageUrl", { length: 512 }),
   textPt: text("textPt").notNull(),
   textEn: text("textEn"),
   expectedAnswerPt: text("expectedAnswerPt").notNull(),
@@ -484,3 +488,23 @@ export const questionAssignments = pgTable("question_assignments", {
 
 export type QuestionAssignment = typeof questionAssignments.$inferSelect;
 export type InsertQuestionAssignment = typeof questionAssignments.$inferInsert;
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  amount: real("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).default("BRL").notNull(),
+  status: paymentStatusEnum("status").default("pending").notNull(),
+  paymentMethod: varchar("paymentMethod", { length: 64 }),
+  planType: paymentPlanTypeEnum("planType"),
+  externalId: varchar("externalId", { length: 128 }),
+  failureReason: text("failureReason"),
+  metadata: json("metadata"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;
