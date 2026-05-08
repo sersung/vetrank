@@ -474,3 +474,12 @@
 - [ ] Exibir imagem no banco de discursivas (DiscursiveBank)
 - [x] Suporte a imageUrl em CSV/XLSX/JSON no importador (campo opcional, aceita URL externa)
 - [x] Documentar campo imageUrl nos templates de importação (CSV e XLSX)
+
+## Home Page & Assinantes — May 2026
+
+- [x] Home: seção de contadores animados (questões, usuários, simulados, acertos)
+- [x] Home: seção de posicionamento para profissionais formados e estudantes de veterinária
+- [x] Home: CTAs diferenciados por perfil (profissional vs estudante)
+- [x] Verificar fluxo de pagamento (plans.ts procedures, página /subscription)
+- [x] AdminPanel: aba Assinantes com tabela de status, dias para expirar, filtros
+- [x] AdminPanel: badge de alerta para assinaturas expirando em menos de 7 dias

@@ -1,0 +1,55 @@
+{
+  "query": "SHOW TABLES LIKE 'payments'; DESCRIBE payments;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2B9j29x9uzbjcd4.661a1b9f85e8 --database eD7J8qp8srx2XTHkuJHc7T --execute SHOW TABLES LIKE 'payments'; DESCRIBE payments;",
+  "rows": [
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "payments"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "id\tint\tNO\tPRI\tNULL\tauto_increment"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "userId\tint\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "amount\tfloat\tNO\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "currency\tvarchar(3)\tNO\t\tBRL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "status\tenum('pending','approved','rejected','cancelled','refunded')\tNO\t\tpending\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "paymentMethod\tvarchar(64)\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "planType\tenum('monthly','annual')\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "externalId\tvarchar(128)\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "failureReason\ttext\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "metadata\tjson\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "notes\ttext\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    },
+    {
+      "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)": "updatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_eD7J8qp8srx2XTHkuJHc7T (payments)\npayments\nField\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nuserId\tint\tNO\t\tNULL\t\namount\tfloat\tNO\t\tNULL\t\ncurrency\tvarchar(3)\tNO\t\tBRL\t\nstatus\tenum('pending','approved','rejected','cancelled','refunded')\tNO\t\tpending\t\npaymentMethod\tvarchar(64)\tYES\t\tNULL\t\nplanType\tenum('monthly','annual')\tYES\t\tNULL\t\nexternalId\tvarchar(128)\tYES\t\tNULL\t\nfailureReason\ttext\tYES\t\tNULL\t\nmetadata\tjson\tYES\t\tNULL\t\nnotes\ttext\tYES\t\tNULL\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\n",
+  "stderr": "",
+  "execution_time_ms": 958
+}

@@ -22,7 +22,10 @@ import {
   deleteDiscursiveQuestion,
   getDiscursiveQuestions,
   getDiscursiveQuestionById,
+  getDb,
 } from "../db";
+import { questions, users, exams } from "../../drizzle/schema";
+import { eq, sql } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 
 const questionTypeEnum = z.enum([
@@ -43,6 +46,23 @@ const questionTypeEnum = z.enum([
 const formatDataSchema = z.any().optional();
 
 export const questionsRouter = router({
+  // Public stats for Home page counters
+  publicStats: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { totalQuestions: 0, totalUsers: 0, totalExams: 0, avgAccuracy: 78 };
+    const [qCount, uCount, eCount, accRow] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(questions).where(eq(questions.active, true)),
+      db.select({ count: sql<number>`count(*)` }).from(users),
+      db.select({ count: sql<number>`count(*)` }).from(exams).where(eq(exams.status, "completed")),
+      db.select({ avg: sql<number>`AVG(score)` }).from(exams).where(eq(exams.status, "completed")),
+    ]);
+    return {
+      totalQuestions: Number(qCount[0]?.count ?? 0),
+      totalUsers: Number(uCount[0]?.count ?? 0),
+      totalExams: Number(eCount[0]?.count ?? 0),
+      avgAccuracy: Math.round(Number(accRow[0]?.avg ?? 78)),
+    };
+  }),
   list: publicProcedure
     .input(
       z.object({

@@ -6,19 +6,77 @@ import { useLanguage, useT } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import {
   ArrowRight,
+  Award,
   BookOpen,
   Brain,
   Check,
   ChevronRight,
+  ClipboardList,
   Crown,
   FlaskConical,
   Globe,
+  GraduationCap,
   Star,
+  Stethoscope,
+  Target,
+  TrendingUp,
   Trophy,
   Users,
   Zap,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useEffect, useRef, useState } from "react";
+
+// Animated counter hook
+function useCountUp(target: number, duration = 1800, start = false) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!start || target === 0) return;
+    let startTime: number | null = null;
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.floor(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration, start]);
+  return value;
+}
+
+// Intersection observer hook
+function useInView() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); obs.disconnect(); }
+    }, { threshold: 0.2 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, inView };
+}
+
+// Stat counter card
+function StatCard({ icon: Icon, value, suffix = "", label, inView, color = "text-primary" }: {
+  icon: React.ElementType; value: number; suffix?: string; label: string; inView: boolean; color?: string;
+}) {
+  const count = useCountUp(value, 1600, inView);
+  const display = value >= 1000 ? `${(count / 1000).toFixed(count >= 1000 ? 1 : 0)}K` : String(count);
+  return (
+    <div className="text-center p-6 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-sm hover:border-primary/30 transition-all">
+      <Icon className={`h-6 w-6 ${color} mx-auto mb-3`} />
+      <div className={`font-serif text-3xl md:text-4xl font-bold ${color} mb-1`}>
+        {display}{suffix}
+      </div>
+      <div className="text-sm text-muted-foreground font-sans">{label}</div>
+    </div>
+  );
+}
 
 const DISCIPLINE_ICONS: Record<string, string> = {
   "ciencias-biologicas": "🔬",
@@ -43,13 +101,15 @@ export default function Home() {
   const t = useT();
   const { language } = useLanguage();
   const { data: disciplines } = trpc.questions.disciplines.useQuery();
+  const { data: publicStats } = trpc.questions.publicStats.useQuery();
+  const { ref: statsRef, inView: statsInView } = useInView();
 
-  const stats = [
-    { label: t("stats_questions"), value: "5.661", icon: BookOpen },
-    { label: t("stats_students"), value: "2K+", icon: Users },
-    { label: t("stats_exams"), value: "10K+", icon: FlaskConical },
-    { label: t("stats_accuracy"), value: "78%", icon: Star },
-  ];
+  const totalQuestions = publicStats?.totalQuestions ?? 5661;
+  const totalUsers = publicStats?.totalUsers ?? 2000;
+  const totalExams = publicStats?.totalExams ?? 10000;
+  const avgAccuracy = publicStats?.avgAccuracy ?? 78;
+
+  const isPt = language === "pt";
 
   const features = [
     { icon: BookOpen, title: t("feat_bank_title"), desc: t("feat_bank_desc"), color: "text-primary" },
@@ -135,9 +195,24 @@ export default function Home() {
             <h1 className="font-serif text-5xl md:text-7xl font-bold mb-6 leading-tight">
               <span className="text-gradient">{t("hero_title")}</span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed font-sans">
+            <p className="text-lg md:text-xl text-muted-foreground mb-4 max-w-2xl mx-auto leading-relaxed font-sans">
               {t("hero_subtitle")}
             </p>
+            {/* Audience tags */}
+            <div className="flex flex-wrap gap-2 justify-center mb-10">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm font-sans">
+                <GraduationCap className="h-3.5 w-3.5" />
+                {isPt ? "Estudantes de Veterinária" : "Veterinary Students"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-sm font-sans">
+                <Stethoscope className="h-3.5 w-3.5" />
+                {isPt ? "Médicos Veterinários Formados" : "Licensed Veterinarians"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-sm font-sans">
+                <Award className="h-3.5 w-3.5" />
+                {isPt ? "Residência e Pós-Graduação" : "Residency & Postgraduate"}
+              </span>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {isAuthenticated ? (
                 <Link href="/exam">
@@ -168,13 +243,152 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center p-4 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm">
-                <stat.icon className="h-5 w-5 text-primary mx-auto mb-2" />
-                <div className="font-serif text-2xl font-bold text-foreground">{stat.value}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 font-sans">{stat.label}</div>
+
+        </div>
+      </section>
+
+      {/* Animated Stats */}
+      <section className="py-16 bg-background border-y border-border/30">
+        <div className="container">
+          <div ref={statsRef} className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            <StatCard icon={BookOpen} value={totalQuestions} label={isPt ? "Questões no Banco" : "Questions in Bank"} inView={statsInView} color="text-primary" />
+            <StatCard icon={Users} value={totalUsers} label={isPt ? "Usuários Ativos" : "Active Users"} inView={statsInView} color="text-cyan-400" />
+            <StatCard icon={FlaskConical} value={totalExams} label={isPt ? "Simulados Realizados" : "Exams Completed"} inView={statsInView} color="text-purple-400" />
+            <StatCard icon={TrendingUp} value={avgAccuracy} suffix="%" label={isPt ? "Taxa Média de Acerto" : "Average Accuracy"} inView={statsInView} color="text-emerald-400" />
+          </div>
+        </div>
+      </section>
+
+      {/* For Professionals & Students */}
+      <section className="py-24 bg-card/20">
+        <div className="container">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 font-sans text-xs px-3 py-1">
+              {isPt ? "Para quem é o VetRank?" : "Who is VetRank for?"}
+            </Badge>
+            <h2 className="font-serif text-4xl font-bold mb-4">
+              {isPt ? "Desenvolvido para toda a carreira veterinária" : "Built for every stage of your veterinary career"}
+            </h2>
+            <p className="text-muted-foreground text-lg font-sans max-w-2xl mx-auto">
+              {isPt
+                ? "Seja você um estudante buscando aprovação no CFMV ou um profissional se atualizando, o VetRank tem o conteúdo certo para você."
+                : "Whether you're a student preparing for licensing or a professional staying current, VetRank has the right content for you."}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Students */}
+            <div className="relative p-8 rounded-3xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/30 hover:border-emerald-500/50 transition-all">
+              <div className="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+                <GraduationCap className="h-6 w-6 text-emerald-400" />
+              </div>
+              <h3 className="font-serif text-2xl font-bold mb-2 text-emerald-400">{isPt ? "Estudantes" : "Students"}</h3>
+              <p className="text-muted-foreground font-sans text-sm mb-6 leading-relaxed">
+                {isPt
+                  ? "Prepare-se para provas, concursos e o exame do CFMV com questões organizadas por disciplina, nível e tipo. Acompanhe seu progresso com gamificação e ranking."
+                  : "Prepare for exams, competitions, and the CFMV licensing exam with questions organized by discipline, level, and type."}
+              </p>
+              <ul className="space-y-2.5 mb-8">
+                {(isPt ? [
+                  "Banco com +5.600 questões de provas reais",
+                  "Simulados no estilo ENADE e CFMV",
+                  "Trilhas de estudo por grande área",
+                  "Ranking e sistema de XP para motivação",
+                  "Questões discursivas com gabarito comentado",
+                ] : [
+                  "Bank with 5,600+ questions from real exams",
+                  "ENADE and CFMV-style mock exams",
+                  "Study trails by subject area",
+                  "Ranking and XP system for motivation",
+                  "Discursive questions with detailed answers",
+                ]).map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm font-sans">
+                    <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">{item}</span>
+                  </li>
+                ))}
+              </ul>
+              {isAuthenticated ? (
+                <Link href="/exam"><Button className="w-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-sans gap-2">{isPt ? "Começar a Estudar" : "Start Studying"}<ArrowRight className="h-4 w-4" /></Button></Link>
+              ) : (
+                <Button className="w-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-sans gap-2" onClick={() => (window.location.href = getLoginUrl())}>{isPt ? "Criar Conta Grátis" : "Create Free Account"}<ArrowRight className="h-4 w-4" /></Button>
+              )}
+            </div>
+            {/* Professionals */}
+            <div className="relative p-8 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 border border-cyan-500/30 hover:border-cyan-500/50 transition-all">
+              <div className="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-cyan-500/15 flex items-center justify-center">
+                <Stethoscope className="h-6 w-6 text-cyan-400" />
+              </div>
+              <h3 className="font-serif text-2xl font-bold mb-2 text-cyan-400">{isPt ? "Profissionais Formados" : "Licensed Professionals"}</h3>
+              <p className="text-muted-foreground font-sans text-sm mb-6 leading-relaxed">
+                {isPt
+                  ? "Mantenha-se atualizado, prepare-se para concursos públicos e especializações. Acesse conteúdo avançado em clínica, cirurgia, saúde pública e muito mais."
+                  : "Stay current, prepare for public service exams and specializations. Access advanced content in clinics, surgery, public health, and more."}
+              </p>
+              <ul className="space-y-2.5 mb-8">
+                {(isPt ? [
+                  "Questões de concursos públicos e residências",
+                  "Conteúdo bilíngue (PT/EN) para publicações",
+                  "Filtros avançados por área e especialidade",
+                  "Modo prática sem pressão de tempo",
+                  "Histórico detalhado de desempenho",
+                ] : [
+                  "Questions from public service exams and residencies",
+                  "Bilingual content (PT/EN) for publications",
+                  "Advanced filters by area and specialty",
+                  "Practice mode without time pressure",
+                  "Detailed performance history",
+                ]).map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm font-sans">
+                    <Check className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">{item}</span>
+                  </li>
+                ))}
+              </ul>
+              {isAuthenticated ? (
+                <Link href="/bank"><Button className="w-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 font-sans gap-2">{isPt ? "Explorar Banco de Questões" : "Explore Question Bank"}<ArrowRight className="h-4 w-4" /></Button></Link>
+              ) : (
+                <Button className="w-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 font-sans gap-2" onClick={() => (window.location.href = getLoginUrl())}>{isPt ? "Acessar a Plataforma" : "Access the Platform"}<ArrowRight className="h-4 w-4" /></Button>
+              )}
+            </div>
+          </div>
+          {/* Residency strip */}
+          <div className="mt-8 max-w-5xl mx-auto p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 flex flex-col md:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0">
+              <Award className="h-6 w-6 text-purple-400" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h4 className="font-serif text-lg font-bold text-purple-400 mb-1">{isPt ? "Residência e Pós-Graduação" : "Residency & Postgraduate"}</h4>
+              <p className="text-sm text-muted-foreground font-sans">
+                {isPt
+                  ? "Questões de alta complexidade para provas de residência, mestrado e doutorado em Medicina Veterinária. Conteúdo validado por especialistas."
+                  : "High-complexity questions for residency, master's, and doctoral exams in Veterinary Medicine. Content validated by specialists."}
+              </p>
+            </div>
+            <Link href="/bank"><Button size="sm" variant="outline" className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 font-sans shrink-0">{isPt ? "Ver Questões" : "View Questions"}</Button></Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-24 bg-background">
+        <div className="container">
+          <div className="text-center mb-16">
+            <h2 className="font-serif text-4xl font-bold mb-4">{isPt ? "Como funciona?" : "How does it work?"}</h2>
+            <p className="text-muted-foreground text-lg font-sans">{isPt ? "Três passos para dominar a Medicina Veterinária" : "Three steps to master Veterinary Medicine"}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {[
+              { step: "01", icon: ClipboardList, color: "text-primary", bg: "bg-primary/10", title: isPt ? "Escolha seu foco" : "Choose your focus", desc: isPt ? "Selecione a grande área, disciplina, nível de dificuldade e tipo de questão que deseja praticar." : "Select the subject area, discipline, difficulty level, and question type you want to practice." },
+              { step: "02", icon: Target, color: "text-cyan-400", bg: "bg-cyan-500/10", title: isPt ? "Pratique e simule" : "Practice and simulate", desc: isPt ? "Responda questões no modo prática ou crie um simulado cronometrado no estilo ENADE/CFMV." : "Answer questions in practice mode or create a timed exam in ENADE/CFMV style." },
+              { step: "03", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", title: isPt ? "Evolua e suba de nível" : "Evolve and level up", desc: isPt ? "Acompanhe seu desempenho por área, ganhe XP, suba no ranking e identifique seus pontos fracos." : "Track your performance by area, earn XP, climb the ranking, and identify your weak points." },
+            ].map((item, i) => (
+              <div key={i} className="text-center">
+                <div className={`w-16 h-16 rounded-2xl ${item.bg} flex items-center justify-center mx-auto mb-4`}>
+                  <item.icon className={`h-7 w-7 ${item.color}`} />
+                </div>
+                <div className="text-xs font-mono text-muted-foreground/50 mb-2">{item.step}</div>
+                <h3 className="font-serif text-lg font-semibold mb-2">{item.title}</h3>
+                <p className="text-sm text-muted-foreground font-sans leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
