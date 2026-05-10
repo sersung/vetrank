@@ -199,7 +199,7 @@ export default function MySubscription() {
 
           {(data.status === "free" || data.status === "expired") && (
             <div className="pt-2">
-              <Button className="gap-2" onClick={() => navigate("/planos")}>
+              <Button className="gap-2" onClick={() => navigate("/pricing")}>
                 <Crown className="h-4 w-4" /> Assinar Premium
               </Button>
             </div>

@@ -483,3 +483,15 @@
 - [x] Verificar fluxo de pagamento (plans.ts procedures, página /subscription)
 - [x] AdminPanel: aba Assinantes com tabela de status, dias para expirar, filtros
 - [x] AdminPanel: badge de alerta para assinaturas expirando em menos de 7 dias
+
+## Bug Fixes — Trial e Assinatura (May 2026)
+- [ ] Corrigir: novo usuário não recebe trial de 7 dias ao se cadastrar (upsertUser não seta plan/trialEndsAt)
+- [ ] Corrigir: link "Assinar" retorna 404 (rota /subscription não encontrada ou link incorreto)
+- [ ] Verificar: usuários novos aparecem na aba Assinantes do AdminPanel com status trial
+
+## Documentação e Deploy (May 2026)
+- [x] Corrigir bug trial: upsertUser deve setar plan=trial, trialStartedAt, trialEndsAt (+7d) ao criar novo usuário
+- [x] Corrigir bug 404: MySubscription usa /planos que não existe, deve usar /pricing ou criar rota
+- [x] Criar README.md com descrição do projeto, stack, banco de dados, variáveis de ambiente e instruções de setup
+- [x] Criar requirements.txt com lista de pacotes Node.js usados
+- [x] Push no GitHub via webdev_save_checkpoint

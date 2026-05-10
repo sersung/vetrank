@@ -1,0 +1,114 @@
+# VetRank — Dependências Node.js
+# Gerenciador de pacotes: pnpm 10
+# Runtime: Node.js >= 22
+# Instalar com: pnpm install
+#
+# Este arquivo lista as dependências principais do projeto.
+# O arquivo canônico de dependências é package.json.
+# Use `pnpm install` para instalar todas as dependências.
+
+# ─── Runtime / Backend ────────────────────────────────────────────────────────
+express@^4.21.2                    # Servidor HTTP
+express-rate-limit@^8.4.1          # Rate limiting por IP
+drizzle-orm@^0.44.5                # ORM para MySQL/TiDB
+mysql2@^3.15.0                     # Driver MySQL (usado pelo Drizzle)
+@trpc/server@^11.6.0               # tRPC server-side
+superjson@^1.13.3                  # Serialização de tipos complexos (Date, etc.)
+jose@6.1.0                         # JWT (sessão OAuth)
+cookie@^1.0.2                      # Parsing de cookies
+nanoid@^5.1.5                      # Geração de IDs únicos
+dotenv@^17.2.2                     # Carregamento de variáveis de ambiente
+zod@^4.1.12                        # Validação de schemas
+
+# ─── Autenticação ─────────────────────────────────────────────────────────────
+# Manus OAuth — integrado via server/_core/oauth.ts e sdk.ts
+
+# ─── Banco de Dados ───────────────────────────────────────────────────────────
+# MySQL 8 ou TiDB (compatível com MySQL)
+# Conexão via DATABASE_URL no .env
+# Migrações gerenciadas pelo drizzle-kit
+
+# ─── Armazenamento de Arquivos ────────────────────────────────────────────────
+@aws-sdk/client-s3@^3.693.0        # Upload/download S3
+@aws-sdk/s3-request-presigner@^3.693.0  # URLs pré-assinadas
+
+# ─── Processamento de Imagens ─────────────────────────────────────────────────
+sharp@^0.34.5                      # Resize e conversão para WebP (binário nativo)
+
+# ─── Extração de Documentos ───────────────────────────────────────────────────
+pdf-parse@^2.4.5                   # Extração de texto de PDFs
+mammoth@^1.12.0                    # Extração de texto de arquivos DOCX/DOC
+
+# ─── IA / LLM ─────────────────────────────────────────────────────────────────
+@google/generative-ai@^0.24.1      # Google Gemini (extração de questões via IA)
+@anthropic-ai/sdk@^0.91.1          # Anthropic Claude
+
+# ─── Pagamentos ───────────────────────────────────────────────────────────────
+mercadopago@^2.12.0                # Mercado Pago SDK
+
+# ─── E-mail ───────────────────────────────────────────────────────────────────
+resend@^6.12.2                     # Envio de e-mails transacionais
+
+# ─── Upload de Arquivos ───────────────────────────────────────────────────────
+multer@^2.1.1                      # Middleware de upload multipart/form-data
+xlsx@^0.18.5                       # Leitura de arquivos XLSX/XLS
+papaparse@^5.5.3                   # Parsing de arquivos CSV
+
+# ─── Frontend — React ─────────────────────────────────────────────────────────
+react@^19.2.1                      # Biblioteca UI
+react-dom@^19.2.1                  # Renderização DOM
+wouter@^3.3.5                      # Roteamento client-side (leve, ~2KB)
+@tanstack/react-query@^5.90.2      # Cache e sincronização de estado servidor
+@trpc/client@^11.6.0               # tRPC client-side
+@trpc/react-query@^11.6.0          # Integração tRPC + React Query
+streamdown@^1.4.0                  # Renderização de markdown com streaming
+framer-motion@^12.23.22            # Animações
+recharts@^2.15.2                   # Gráficos e visualizações
+date-fns@^4.1.0                    # Utilitários de data
+react-hook-form@^7.64.0            # Formulários com validação
+@hookform/resolvers@^5.2.2         # Integração react-hook-form + zod
+react-day-picker@^9.11.1           # Seletor de datas
+embla-carousel-react@^8.6.0        # Carrossel
+react-resizable-panels@^3.0.6      # Painéis redimensionáveis
+next-themes@^0.4.6                 # Gerenciamento de tema dark/light
+sonner@^2.0.7                      # Notificações toast
+input-otp@^1.4.2                   # Input de código OTP
+cmdk@^1.1.1                        # Command palette
+vaul@^1.1.2                        # Drawer (gaveta) para mobile
+lucide-react@^0.453.0              # Ícones SVG
+
+# ─── Frontend — UI / Estilo ───────────────────────────────────────────────────
+tailwindcss@^4.1.14                # Framework CSS utilitário
+tailwind-merge@^3.3.1              # Merge de classes Tailwind sem conflitos
+tailwindcss-animate@^1.0.7         # Animações CSS para Tailwind
+class-variance-authority@^0.7.1    # Variantes de componentes
+clsx@^2.1.1                        # Utilitário de classes condicionais
+# shadcn/ui — componentes Radix UI com Tailwind (não é um pacote, é código copiado)
+@radix-ui/react-accordion@^1.2.12
+@radix-ui/react-alert-dialog@^1.1.15
+@radix-ui/react-avatar@^1.1.10
+@radix-ui/react-checkbox@^1.3.3
+@radix-ui/react-dialog@^1.1.15
+@radix-ui/react-dropdown-menu@^2.1.16
+@radix-ui/react-label@^2.1.7
+@radix-ui/react-popover@^1.1.15
+@radix-ui/react-progress@^1.1.7
+@radix-ui/react-radio-group@^1.3.8
+@radix-ui/react-scroll-area@^1.2.10
+@radix-ui/react-select@^2.2.6
+@radix-ui/react-separator@^1.1.7
+@radix-ui/react-slider@^1.3.6
+@radix-ui/react-slot@^1.2.3
+@radix-ui/react-switch@^1.2.6
+@radix-ui/react-tabs@^1.1.13
+@radix-ui/react-tooltip@^1.2.8
+
+# ─── Ferramentas de Build / Dev ───────────────────────────────────────────────
+vite@^7.1.7                        # Build tool e dev server
+@vitejs/plugin-react@^5.0.4        # Plugin React para Vite
+esbuild@^0.25.0                    # Bundler do servidor (produção)
+typescript@5.9.3                   # Compilador TypeScript
+tsx@^4.19.1                        # Execução de TypeScript sem compilação (dev)
+drizzle-kit@^0.31.4                # CLI de migrações do Drizzle ORM
+vitest@^2.1.4                      # Framework de testes unitários
+prettier@^3.6.2                    # Formatador de código
