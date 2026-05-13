@@ -181,6 +181,78 @@ export default function AdminPanel() {
   const generateAi = trpc.ai.generateQuestion.useMutation();
   const importCsv = trpc.questions.importCsv.useMutation();
   const createQuestion = trpc.questions.create.useMutation();
+  const updateQuestionMutation = trpc.questions.update.useMutation();
+
+  // Edit question state
+  const [editQuestionId, setEditQuestionId] = useState<number | null>(null);
+  const { data: editQuestionData, isLoading: editLoading } = trpc.questions.byId.useQuery(
+    { id: editQuestionId! },
+    { enabled: !!editQuestionId }
+  );
+  const [editForm, setEditForm] = useState<any>(null);
+
+  // Sync editForm when editQuestionData loads
+  const prevEditId = useRef<number | null>(null);
+  if (editQuestionData && editQuestionId && prevEditId.current !== editQuestionId) {
+    prevEditId.current = editQuestionId;
+    setEditForm({
+      textPt: editQuestionData.textPt ?? "",
+      textEn: editQuestionData.textEn ?? "",
+      disciplineId: String(editQuestionData.disciplineId),
+      subjectId: editQuestionData.subjectId ? String(editQuestionData.subjectId) : "",
+      difficulty: editQuestionData.difficulty,
+      year: editQuestionData.year ? String(editQuestionData.year) : "",
+      isPremium: editQuestionData.isPremium,
+      questionType: editQuestionData.questionType as QuestionType,
+      subjectTag: editQuestionData.subjectTag ?? "",
+      author: editQuestionData.author ?? "",
+      correctOption: editQuestionData.correctOption,
+      explanationPt: editQuestionData.explanationPt ?? "",
+      explanationEn: editQuestionData.explanationEn ?? "",
+      assertion1: editQuestionData.assertion1 ?? "",
+      assertion2: editQuestionData.assertion2 ?? "",
+      options: (editQuestionData.options as any[]) ?? [{id:"A",textPt:""},{id:"B",textPt:""},{id:"C",textPt:""},{id:"D",textPt:""},{id:"E",textPt:""}],
+      formatData: (editQuestionData.formatData as FormatData) ?? {} as FormatData,
+    });
+  }
+
+  const handleOpenEdit = (id: number) => {
+    setEditForm(null);
+    prevEditId.current = null;
+    setEditQuestionId(id);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm || !editQuestionId) return;
+    try {
+      await updateQuestionMutation.mutateAsync({
+        id: editQuestionId,
+        textPt: editForm.textPt,
+        textEn: editForm.textEn || undefined,
+        disciplineId: editForm.disciplineId ? parseInt(editForm.disciplineId) : undefined,
+        subjectId: editForm.subjectId ? parseInt(editForm.subjectId) : undefined,
+        difficulty: editForm.difficulty,
+        year: editForm.year ? parseInt(editForm.year) : undefined,
+        isPremium: editForm.isPremium,
+        questionType: editForm.questionType,
+        subjectTag: editForm.subjectTag || undefined,
+        author: editForm.author || undefined,
+        correctOption: editForm.correctOption,
+        explanationPt: editForm.explanationPt || undefined,
+        explanationEn: editForm.explanationEn || undefined,
+        assertion1: editForm.assertion1 || undefined,
+        assertion2: editForm.assertion2 || undefined,
+        options: editForm.options,
+        formatData: editForm.formatData,
+      });
+      toast.success(language === "pt" ? "Questão atualizada!" : "Question updated!");
+      setEditQuestionId(null);
+      setEditForm(null);
+      refetchQuestions();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const [showAddDiscipline, setShowAddDiscipline] = useState(false);
   const [showAddSubject, setShowAddSubject] = useState(false);
@@ -653,14 +725,25 @@ export default function AdminPanel() {
                       {q.year && <Badge variant="outline" className="text-xs font-sans">{q.year}</Badge>}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteQuestion(q.id)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenEdit(q.id)}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 p-0"
+                      title={language === "pt" ? "Editar questão" : "Edit question"}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteQuestion(q.id)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {!questions?.questions.length && (
@@ -1583,10 +1666,141 @@ export default function AdminPanel() {
           </div>
         </DialogContent>
       </Dialog>
+       {/* Edit Question Dialog */}
+      <Dialog open={!!editQuestionId} onOpenChange={(o) => { if (!o) { setEditQuestionId(null); setEditForm(null); } }}>
+        <DialogContent className="bg-card border-border/50 max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif">{language === "pt" ? "Editar Questão" : "Edit Question"} #{editQuestionId}</DialogTitle>
+          </DialogHeader>
+          {editLoading || !editForm ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* Enunciado */}
+              <div>
+                <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Enunciado (PT)" : "Statement (PT)"} *</label>
+                <textarea
+                  value={editForm.textPt}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, textPt: e.target.value }))}
+                  rows={4}
+                  className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              {/* Metadata row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Grande Área" : "Major Area"}</label>
+                  <Select value={editForm.disciplineId} onValueChange={(v) => setEditForm((p: any) => ({ ...p, disciplineId: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {disciplines?.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{language === "pt" ? d.namePt : d.nameEn}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Dificuldade" : "Difficulty"}</label>
+                  <Select value={editForm.difficulty} onValueChange={(v) => setEditForm((p: any) => ({ ...p, difficulty: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">{language === "pt" ? "Fácil" : "Easy"}</SelectItem>
+                      <SelectItem value="medium">{language === "pt" ? "Médio" : "Medium"}</SelectItem>
+                      <SelectItem value="hard">{language === "pt" ? "Difícil" : "Hard"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Tipo" : "Type"}</label>
+                  <Select value={editForm.questionType} onValueChange={(v) => setEditForm((p: any) => ({ ...p, questionType: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(QUESTION_TYPE_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{typeof v === 'object' ? (v as any).pt ?? k : v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Ano" : "Year"}</label>
+                  <Input value={editForm.year} onChange={(e) => setEditForm((p: any) => ({ ...p, year: e.target.value }))} className="bg-background font-sans text-sm" placeholder="2024" />
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Autor/Banca" : "Author/Board"}</label>
+                  <Input value={editForm.author} onChange={(e) => setEditForm((p: any) => ({ ...p, author: e.target.value }))} className="bg-background font-sans text-sm" />
+                </div>
+              </div>
+              {/* Alternativas */}
+              {editForm.questionType === "multiple_choice" && (
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-2 block">{language === "pt" ? "Alternativas" : "Options"}</label>
+                  <div className="space-y-2">
+                    {(editForm.options as Array<{id:string;textPt:string}>).map((opt, idx) => (
+                      <div key={opt.id} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm((p: any) => ({ ...p, correctOption: opt.id }))}
+                          className={`w-7 h-7 rounded-full text-xs font-bold shrink-0 border-2 transition-colors ${
+                            editForm.correctOption === opt.id
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-border hover:border-primary"
+                          }`}
+                        >{opt.id}</button>
+                        <Input
+                          value={opt.textPt}
+                          onChange={(e) => {
+                            const opts = [...editForm.options];
+                            opts[idx] = { ...opts[idx], textPt: e.target.value };
+                            setEditForm((p: any) => ({ ...p, options: opts }));
+                          }}
+                          className="bg-background font-sans text-sm flex-1"
+                          placeholder={`Alternativa ${opt.id}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{language === "pt" ? "Clique na letra para marcar como correta" : "Click the letter to mark as correct"}</p>
+                </div>
+              )}
+              {/* Explicação */}
+              <div>
+                <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Explicação (opcional)" : "Explanation (optional)"}</label>
+                <textarea
+                  value={editForm.explanationPt}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, explanationPt: e.target.value }))}
+                  rows={3}
+                  className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              {/* Premium toggle */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit-premium"
+                  checked={editForm.isPremium}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, isPremium: e.target.checked }))}
+                  className="w-4 h-4 accent-primary"
+                />
+                <label htmlFor="edit-premium" className="text-sm font-sans">{language === "pt" ? "Questão Premium" : "Premium Question"}</label>
+              </div>
+              {/* Actions */}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setEditQuestionId(null); setEditForm(null); }} className="flex-1 font-sans">{t("cancel")}</Button>
+                <Button onClick={handleSaveEdit} disabled={updateQuestionMutation.isPending} className="flex-1 bg-primary text-primary-foreground font-sans">
+                  {updateQuestionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === "pt" ? "Salvar Alterações" : "Save Changes")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
 // ─── Import Tab (sub-component used by AdminPanel) ────────────────────────────
 function ImportTab({ onImportComplete }: { onImportComplete: () => void }) {
   const [preloadedRows, setPreloadedRows] = useState<import("@/components/QuestionImport").ParsedMCQuestion[]>([]);

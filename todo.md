@@ -485,9 +485,9 @@
 - [x] AdminPanel: badge de alerta para assinaturas expirando em menos de 7 dias
 
 ## Bug Fixes — Trial e Assinatura (May 2026)
-- [ ] Corrigir: novo usuário não recebe trial de 7 dias ao se cadastrar (upsertUser não seta plan/trialEndsAt)
-- [ ] Corrigir: link "Assinar" retorna 404 (rota /subscription não encontrada ou link incorreto)
-- [ ] Verificar: usuários novos aparecem na aba Assinantes do AdminPanel com status trial
+- [x] Corrigir: novo usuário não recebe trial de 7 dias ao se cadastrar (upsertUser não seta plan/trialEndsAt)
+- [x] Corrigir: link "Assinar" retorna 404 (rota /subscription não encontrada ou link incorreto)
+- [x] Verificar: usuários novos aparecem na aba Assinantes do AdminPanel com status trial
 
 ## Documentação e Deploy (May 2026)
 - [x] Corrigir bug trial: upsertUser deve setar plan=trial, trialStartedAt, trialEndsAt (+7d) ao criar novo usuário
@@ -495,3 +495,40 @@
 - [x] Criar README.md com descrição do projeto, stack, banco de dados, variáveis de ambiente e instruções de setup
 - [x] Criar requirements.txt com lista de pacotes Node.js usados
 - [x] Push no GitHub via webdev_save_checkpoint
+
+## Sprint Urgente — Bugs e Inconsistências (09/05/2026)
+
+### Bug Crítico 1: Edição de Questões no Admin
+- [x] Investigar por que ao abrir questão no AdminPanel só aparece o enunciado
+- [x] Garantir que endpoint/procedure retorna objeto completo (alternativas, gabarito, explicação, metadados)
+- [x] Corrigir tela de edição para exibir e permitir editar todos os campos
+- [x] Testar abertura e salvamento de questão editada
+
+### Bug Crítico 2: Discursivas não aparecem na busca
+- [x] Verificar filtro padrão da busca (está excluindo questionType=discursive?)
+- [x] Verificar se discursive_questions tem indexação correta no banco
+- [x] Corrigir busca para incluir discursivas quando filtro de tipo não está definido (debounce adicionado)
+
+### Lógica de Trial
+- [ ] Reverter upsertUser: novo usuário deve ter plan=free (não trial automático)
+- [ ] Adicionar campo trialAvailable (boolean, default true) na tabela users
+- [ ] Criar procedure plans.activateTrial: seta plan=trial, trialStartedAt, trialEndsAt (+7d), trialAvailable=false
+- [ ] Paywall: ao tentar acessar simulados/trilhas com plan=free, mostrar modal com "Você tem 7 dias gratuitos — Ativar Trial"
+- [ ] Botão "Iniciar Trial" chama plans.activateTrial
+- [ ] Após trial expirar: plan=expired (não free)
+
+### UX Paywall
+- [x] Bloquear acesso a simulados (ExamPage) para plan=free/expired (banner paywall)
+- [x] Bloquear acesso a trilhas (Trails/TrailDetail) para plan=free/expired (banner paywall)
+- [x] Mostrar banner/modal de ativação de trial com contador de dias disponíveis
+- [x] Redirecionar para /pricing após trial expirado
+
+### Aba Clientes no Admin
+- [x] Adicionar coluna "Nome" na tabela de clientes do AdminPanel (nome já exibido na coluna Usuário)
+- [ ] Corrigir inconsistência de plano: verificar enum e mapeamento frontend/backend
+- [ ] Corrigir query do dashboard de planos para refletir dados corretos
+
+### Documentação do Importador
+- [ ] Adicionar bloco de documentação inline no importador com campos obrigatórios e opcionais
+- [ ] Especificar: textPt, disciplineId, difficulty, optA-E, correctOption (obrigatórios)
+- [ ] Especificar: explanationPt, subjectId, author, year, assertion1/2 (opcionais)

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  BookOpen, Clock, CheckCircle2, Lock, PlayCircle,
+  BookOpen, Clock, CheckCircle2, Crown, Lock, PlayCircle,
   Trophy, ChevronRight, GraduationCap, Star, Zap,
   Flame, TrendingUp, Award, Shield,
 } from "lucide-react";
@@ -113,9 +113,32 @@ export default function Trails() {
     );
   }
 
+  const isFree = (user as any)?.plan === "free";
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container py-8 max-w-5xl">
+
+        {/* ── Paywall banner for free users ─────────────────────────────── */}
+        {user && isFree && (
+          <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-start gap-3">
+            <Crown className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-sans font-medium text-yellow-300 mb-1">
+                Trilhas de estudo são exclusivas para assinantes
+              </p>
+              <p className="text-xs font-sans text-yellow-400/80 mb-2">
+                Faça upgrade para acessar trilhas ilimitadas, simulados e muito mais.
+              </p>
+              <Link href="/pricing">
+                <Button size="sm" className="bg-yellow-500 text-black hover:bg-yellow-400 font-sans text-xs gap-1">
+                  <Crown className="h-3 w-3" />
+                  Ver planos
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ── XP / Level Hero Banner ─────────────────────────────────────── */}
         {user && (

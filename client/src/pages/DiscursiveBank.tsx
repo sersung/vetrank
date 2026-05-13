@@ -31,7 +31,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getLoginUrl } from "@/const";
 
 export default function DiscursiveBank() {
@@ -41,7 +41,13 @@ export default function DiscursiveBank() {
   const [disciplineFilter, setDisciplineFilter] = useState<number | undefined>();
   const [difficultyFilter, setDifficultyFilter] = useState<string | undefined>();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
+  // Debounce search to avoid excessive queries on each keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showAnswer, setShowAnswer] = useState<Record<number, boolean>>({});
 
@@ -58,7 +64,7 @@ export default function DiscursiveBank() {
   const { data: result, refetch } = trpc.discursive.list.useQuery({
     disciplineId: disciplineFilter,
     difficulty: difficultyFilter as any,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     page,
     limit: 15,
   });

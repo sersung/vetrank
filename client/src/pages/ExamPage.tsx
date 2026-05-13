@@ -21,6 +21,7 @@ import {
   Brain,
   CheckCircle,
   Clock,
+  Crown,
   FlaskConical,
   Loader2,
   Trophy,
@@ -28,7 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Streamdown } from "streamdown";
 import QuestionRenderer from "@/components/QuestionRenderer";
 
@@ -380,11 +381,32 @@ export default function ExamPage() {
               </Select>
             </div>
 
+            {/* Paywall banner for free users */}
+            {isAuthenticated && (user as any)?.plan === "free" && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-start gap-3">
+                <Crown className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-sans font-medium text-yellow-300 mb-1">
+                    {language === "pt" ? "Simulados são exclusivos para assinantes" : "Mock exams are exclusive to subscribers"}
+                  </p>
+                  <p className="text-xs font-sans text-yellow-400/80 mb-2">
+                    {language === "pt" ? "Faça upgrade para acessar simulados ilimitados e muito mais." : "Upgrade to access unlimited mock exams and more."}
+                  </p>
+                  <Link href="/pricing">
+                    <Button size="sm" className="bg-yellow-500 text-black hover:bg-yellow-400 font-sans text-xs gap-1">
+                      <Crown className="h-3 w-3" />
+                      {language === "pt" ? "Ver planos" : "View plans"}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
             <Button
               size="lg"
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary gap-2 font-sans"
               onClick={handleStart}
-              disabled={startExam.isPending}
+              disabled={startExam.isPending || (isAuthenticated && (user as any)?.plan === "free")}
             >
               {startExam.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
