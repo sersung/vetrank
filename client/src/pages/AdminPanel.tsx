@@ -23,11 +23,13 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   AlertCircle,
+  AlertTriangle,
   BookOpen,
   Brain,
   Calendar,
   CheckCircle,
   ClipboardList,
+  Clock,
   CreditCard,
   Crown,
   Database,
@@ -179,6 +181,78 @@ export default function AdminPanel() {
   const generateAi = trpc.ai.generateQuestion.useMutation();
   const importCsv = trpc.questions.importCsv.useMutation();
   const createQuestion = trpc.questions.create.useMutation();
+  const updateQuestionMutation = trpc.questions.update.useMutation();
+
+  // Edit question state
+  const [editQuestionId, setEditQuestionId] = useState<number | null>(null);
+  const { data: editQuestionData, isLoading: editLoading } = trpc.questions.byId.useQuery(
+    { id: editQuestionId! },
+    { enabled: !!editQuestionId }
+  );
+  const [editForm, setEditForm] = useState<any>(null);
+
+  // Sync editForm when editQuestionData loads
+  const prevEditId = useRef<number | null>(null);
+  if (editQuestionData && editQuestionId && prevEditId.current !== editQuestionId) {
+    prevEditId.current = editQuestionId;
+    setEditForm({
+      textPt: editQuestionData.textPt ?? "",
+      textEn: editQuestionData.textEn ?? "",
+      disciplineId: String(editQuestionData.disciplineId),
+      subjectId: editQuestionData.subjectId ? String(editQuestionData.subjectId) : "",
+      difficulty: editQuestionData.difficulty,
+      year: editQuestionData.year ? String(editQuestionData.year) : "",
+      isPremium: editQuestionData.isPremium,
+      questionType: editQuestionData.questionType as QuestionType,
+      subjectTag: editQuestionData.subjectTag ?? "",
+      author: editQuestionData.author ?? "",
+      correctOption: editQuestionData.correctOption,
+      explanationPt: editQuestionData.explanationPt ?? "",
+      explanationEn: editQuestionData.explanationEn ?? "",
+      assertion1: editQuestionData.assertion1 ?? "",
+      assertion2: editQuestionData.assertion2 ?? "",
+      options: (editQuestionData.options as any[]) ?? [{id:"A",textPt:""},{id:"B",textPt:""},{id:"C",textPt:""},{id:"D",textPt:""},{id:"E",textPt:""}],
+      formatData: (editQuestionData.formatData as FormatData) ?? {} as FormatData,
+    });
+  }
+
+  const handleOpenEdit = (id: number) => {
+    setEditForm(null);
+    prevEditId.current = null;
+    setEditQuestionId(id);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm || !editQuestionId) return;
+    try {
+      await updateQuestionMutation.mutateAsync({
+        id: editQuestionId,
+        textPt: editForm.textPt,
+        textEn: editForm.textEn || undefined,
+        disciplineId: editForm.disciplineId ? parseInt(editForm.disciplineId) : undefined,
+        subjectId: editForm.subjectId ? parseInt(editForm.subjectId) : undefined,
+        difficulty: editForm.difficulty,
+        year: editForm.year ? parseInt(editForm.year) : undefined,
+        isPremium: editForm.isPremium,
+        questionType: editForm.questionType,
+        subjectTag: editForm.subjectTag || undefined,
+        author: editForm.author || undefined,
+        correctOption: editForm.correctOption,
+        explanationPt: editForm.explanationPt || undefined,
+        explanationEn: editForm.explanationEn || undefined,
+        assertion1: editForm.assertion1 || undefined,
+        assertion2: editForm.assertion2 || undefined,
+        options: editForm.options,
+        formatData: editForm.formatData,
+      });
+      toast.success(language === "pt" ? "Questão atualizada!" : "Question updated!");
+      setEditQuestionId(null);
+      setEditForm(null);
+      refetchQuestions();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const [showAddDiscipline, setShowAddDiscipline] = useState(false);
   const [showAddSubject, setShowAddSubject] = useState(false);
@@ -595,6 +669,10 @@ export default function AdminPanel() {
               <CreditCard className="h-3.5 w-3.5" />
               Planos
             </TabsTrigger>
+            <TabsTrigger value="assinantes" className="font-sans gap-1">
+              <UserCheck className="h-3.5 w-3.5" />
+              {language === "pt" ? "Assinantes" : "Subscribers"}
+            </TabsTrigger>
           </TabsList>
 
           {/* Questions tab */}
@@ -651,14 +729,25 @@ export default function AdminPanel() {
                       {q.year && <Badge variant="outline" className="text-xs font-sans">{q.year}</Badge>}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteQuestion(q.id)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenEdit(q.id)}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 p-0"
+                      title={language === "pt" ? "Editar questão" : "Edit question"}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteQuestion(q.id)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {!questions?.questions.length && (
@@ -1264,6 +1353,10 @@ export default function AdminPanel() {
             <PlanosTab />
           </TabsContent>
 
+          <TabsContent value="assinantes">
+            <AssinantesTab />
+          </TabsContent>
+
         </Tabs>
       </div>
 
@@ -1573,6 +1666,133 @@ export default function AdminPanel() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Question Dialog */}
+      <Dialog open={!!editQuestionId} onOpenChange={(o) => { if (!o) { setEditQuestionId(null); setEditForm(null); } }}>
+        <DialogContent className="bg-card border-border/50 max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif">{language === "pt" ? "Editar Questão" : "Edit Question"} #{editQuestionId}</DialogTitle>
+          </DialogHeader>
+          {editLoading || !editForm ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Enunciado (PT)" : "Statement (PT)"} *</label>
+                <textarea
+                  value={editForm.textPt}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, textPt: e.target.value }))}
+                  rows={4}
+                  className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Grande Área" : "Major Area"}</label>
+                  <Select value={editForm.disciplineId} onValueChange={(v) => setEditForm((p: any) => ({ ...p, disciplineId: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {disciplines?.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{language === "pt" ? d.namePt : d.nameEn}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Dificuldade" : "Difficulty"}</label>
+                  <Select value={editForm.difficulty} onValueChange={(v) => setEditForm((p: any) => ({ ...p, difficulty: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">{language === "pt" ? "Fácil" : "Easy"}</SelectItem>
+                      <SelectItem value="medium">{language === "pt" ? "Médio" : "Medium"}</SelectItem>
+                      <SelectItem value="hard">{language === "pt" ? "Difícil" : "Hard"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Tipo" : "Type"}</label>
+                  <Select value={editForm.questionType} onValueChange={(v) => setEditForm((p: any) => ({ ...p, questionType: v }))}>
+                    <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(QUESTION_TYPE_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{typeof v === 'object' ? (v as any).pt ?? k : v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Ano" : "Year"}</label>
+                  <Input value={editForm.year} onChange={(e) => setEditForm((p: any) => ({ ...p, year: e.target.value }))} className="bg-background font-sans text-sm" placeholder="2024" />
+                </div>
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Autor/Banca" : "Author/Board"}</label>
+                  <Input value={editForm.author} onChange={(e) => setEditForm((p: any) => ({ ...p, author: e.target.value }))} className="bg-background font-sans text-sm" />
+                </div>
+              </div>
+              {editForm.questionType === "multiple_choice" && (
+                <div>
+                  <label className="text-xs font-sans text-muted-foreground mb-2 block">{language === "pt" ? "Alternativas" : "Options"}</label>
+                  <div className="space-y-2">
+                    {(editForm.options as Array<{id:string;textPt:string}>).map((opt, idx) => (
+                      <div key={opt.id} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm((p: any) => ({ ...p, correctOption: opt.id }))}
+                          className={`w-7 h-7 rounded-full text-xs font-bold shrink-0 border-2 transition-colors ${
+                            editForm.correctOption === opt.id
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-border hover:border-primary"
+                          }`}
+                        >{opt.id}</button>
+                        <Input
+                          value={opt.textPt}
+                          onChange={(e) => {
+                            const opts = [...editForm.options];
+                            opts[idx] = { ...opts[idx], textPt: e.target.value };
+                            setEditForm((p: any) => ({ ...p, options: opts }));
+                          }}
+                          className="bg-background font-sans text-sm flex-1"
+                          placeholder={`Alternativa ${opt.id}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{language === "pt" ? "Clique na letra para marcar como correta" : "Click the letter to mark as correct"}</p>
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Explicação (opcional)" : "Explanation (optional)"}</label>
+                <textarea
+                  value={editForm.explanationPt}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, explanationPt: e.target.value }))}
+                  rows={3}
+                  className="w-full p-3 rounded-lg bg-background border border-border/50 text-sm font-sans resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit-premium"
+                  checked={editForm.isPremium}
+                  onChange={(e) => setEditForm((p: any) => ({ ...p, isPremium: e.target.checked }))}
+                  className="w-4 h-4 accent-primary"
+                />
+                <label htmlFor="edit-premium" className="text-sm font-sans">{language === "pt" ? "Questão Premium" : "Premium Question"}</label>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setEditQuestionId(null); setEditForm(null); }} className="flex-1 font-sans">{t("cancel")}</Button>
+                <Button onClick={handleSaveEdit} disabled={updateQuestionMutation.isPending} className="flex-1 bg-primary text-primary-foreground font-sans">
+                  {updateQuestionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === "pt" ? "Salvar Alterações" : "Save Changes")}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -1954,6 +2174,274 @@ function PlanosTab() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Assinantes Tab ──────────────────────────────────────────────────────────
+function AssinantesTab() {
+  const { language } = useLanguage();
+  const isPt = language === "pt";
+
+  const [planFilter, setPlanFilter] = useState<"all" | "trial" | "premium" | "free" | "expired">("all");
+  const [expiryFilter, setExpiryFilter] = useState<"all" | "7" | "15" | "30" | "expired">("all");
+  const [search, setSearch] = useState("");
+
+  const { data, isLoading, refetch } = trpc.plans.listUsersWithPlans.useQuery({
+    page: 1,
+    limit: 100,
+    planFilter: planFilter === "all" ? undefined : planFilter,
+  });
+
+  const updatePlan = trpc.plans.updateUserPlan.useMutation({
+    onSuccess: () => { toast.success(isPt ? "Plano atualizado" : "Plan updated"); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const users = (data?.users ?? []).filter((u: any) => {
+    const matchSearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase());
+    if (!matchSearch) return false;
+    if (expiryFilter === "all") return true;
+    const now = Date.now();
+    if (expiryFilter === "expired") {
+      return u.plan === "premium" && u.premiumEndsAt && new Date(u.premiumEndsAt).getTime() < now;
+    }
+    const days = parseInt(expiryFilter);
+    const deadline = now + days * 86400000;
+    if (u.plan === "premium" && u.premiumEndsAt) {
+      const end = new Date(u.premiumEndsAt).getTime();
+      return end > now && end <= deadline;
+    }
+    if (u.plan === "trial" && u.trialEndsAt) {
+      const end = new Date(u.trialEndsAt).getTime();
+      return end > now && end <= deadline;
+    }
+    return false;
+  });
+
+  function daysLeft(dateStr: string | null | undefined): number | null {
+    if (!dateStr) return null;
+    const diff = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diff / 86400000);
+  }
+
+  function planBadge(u: any) {
+    const days = u.plan === "premium" ? daysLeft(u.premiumEndsAt) : daysLeft(u.trialEndsAt);
+    if (u.plan === "premium") {
+      if (days !== null && days <= 0) return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 font-sans text-xs">{isPt ? "Expirado" : "Expired"}</Badge>;
+      if (days !== null && days <= 7) return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 font-sans text-xs">{isPt ? `Expira em ${days}d` : `Expires in ${days}d`}</Badge>;
+      return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 font-sans text-xs"><Crown className="h-3 w-3 mr-1" />Premium</Badge>;
+    }
+    if (u.plan === "trial") {
+      if (days !== null && days <= 0) return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 font-sans text-xs">{isPt ? "Trial expirado" : "Trial expired"}</Badge>;
+      if (days !== null && days <= 3) return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 font-sans text-xs">{isPt ? `Trial: ${days}d` : `Trial: ${days}d`}</Badge>;
+      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 font-sans text-xs"><Timer className="h-3 w-3 mr-1" />Trial</Badge>;
+    }
+    return <Badge className="bg-muted/50 text-muted-foreground border-border font-sans text-xs">Free</Badge>;
+  }
+
+  const premiumCount = (data?.users ?? []).filter((u: any) => u.plan === "premium").length;
+  const trialCount = (data?.users ?? []).filter((u: any) => u.plan === "trial").length;
+  const freeCount = (data?.users ?? []).filter((u: any) => u.plan === "free").length;
+  const expiringCount = (data?.users ?? []).filter((u: any) => {
+    const days = u.plan === "premium" ? daysLeft(u.premiumEndsAt) : u.plan === "trial" ? daysLeft(u.trialEndsAt) : null;
+    return days !== null && days > 0 && days <= 7;
+  }).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <Crown className="h-4 w-4 text-yellow-400" />
+            <span className="text-xs text-muted-foreground font-sans">Premium</span>
+          </div>
+          <div className="text-2xl font-bold font-serif text-yellow-400">{premiumCount}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <Timer className="h-4 w-4 text-blue-400" />
+            <span className="text-xs text-muted-foreground font-sans">Trial</span>
+          </div>
+          <div className="text-2xl font-bold font-serif text-blue-400">{trialCount}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+          <div className="flex items-center gap-2 mb-1">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-sans">Free</span>
+          </div>
+          <div className="text-2xl font-bold font-serif text-foreground">{freeCount}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="h-4 w-4 text-orange-400" />
+            <span className="text-xs text-muted-foreground font-sans">{isPt ? "Expirando em 7d" : "Expiring in 7d"}</span>
+          </div>
+          <div className="text-2xl font-bold font-serif text-orange-400">{expiringCount}</div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px]">
+          <input
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder={isPt ? "Buscar por nome ou email..." : "Search by name or email..."}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Select value={planFilter} onValueChange={(v) => setPlanFilter(v as any)}>
+          <SelectTrigger className="w-40 font-sans text-sm bg-background">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isPt ? "Todos os planos" : "All plans"}</SelectItem>
+            <SelectItem value="premium">Premium</SelectItem>
+            <SelectItem value="trial">Trial</SelectItem>
+            <SelectItem value="free">Free</SelectItem>
+            <SelectItem value="expired">{isPt ? "Expirados" : "Expired"}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={expiryFilter} onValueChange={(v) => setExpiryFilter(v as any)}>
+          <SelectTrigger className="w-48 font-sans text-sm bg-background">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{isPt ? "Qualquer vencimento" : "Any expiry"}</SelectItem>
+            <SelectItem value="7">{isPt ? "Expira em 7 dias" : "Expires in 7 days"}</SelectItem>
+            <SelectItem value="15">{isPt ? "Expira em 15 dias" : "Expires in 15 days"}</SelectItem>
+            <SelectItem value="30">{isPt ? "Expira em 30 dias" : "Expires in 30 days"}</SelectItem>
+            <SelectItem value="expired">{isPt ? "Já expirados" : "Already expired"}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" onClick={() => refetch()} className="gap-1 font-sans">
+          <RefreshCw className="h-3.5 w-3.5" />
+          {isPt ? "Atualizar" : "Refresh"}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground font-sans">
+          {isPt ? "Nenhum assinante encontrado" : "No subscribers found"}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/50 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-card/80 border-b border-border/50">
+              <tr>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Usuário" : "User"}</th>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Plano" : "Plan"}</th>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Início" : "Start"}</th>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Vencimento" : "Expires"}</th>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Dias restantes" : "Days left"}</th>
+                <th className="text-left p-3 font-sans text-muted-foreground font-medium">{isPt ? "Ações" : "Actions"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u: any) => {
+                const isPremium = u.plan === "premium";
+                const isTrial = u.plan === "trial";
+                const endDate = isPremium ? u.premiumEndsAt : isTrial ? u.trialEndsAt : null;
+                const startDate = isPremium ? u.premiumStartedAt : isTrial ? u.trialStartedAt : null;
+                const days = daysLeft(endDate);
+                const isExpired = days !== null && days <= 0;
+                const isUrgent = days !== null && days > 0 && days <= 7;
+
+                return (
+                  <tr key={u.id} className={`border-b border-border/30 hover:bg-card/40 transition-colors ${isExpired ? "bg-red-500/5" : isUrgent ? "bg-orange-500/5" : ""}`}>
+                    <td className="p-3">
+                      <div className="font-sans font-medium text-foreground">{u.name || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{u.email}</div>
+                    </td>
+                    <td className="p-3">{planBadge(u)}</td>
+                    <td className="p-3 text-muted-foreground font-sans text-xs">
+                      {startDate ? new Date(startDate).toLocaleDateString(isPt ? "pt-BR" : "en-US") : "—"}
+                    </td>
+                    <td className="p-3 font-sans text-xs">
+                      {endDate ? (
+                        <span className={isExpired ? "text-red-400" : isUrgent ? "text-orange-400" : "text-foreground"}>
+                          {new Date(endDate).toLocaleDateString(isPt ? "pt-BR" : "en-US")}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="p-3">
+                      {days !== null ? (
+                        <div className="flex items-center gap-1.5">
+                          {isExpired ? (
+                            <span className="flex items-center gap-1 text-red-400 text-xs font-sans">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              {isPt ? "Expirado" : "Expired"}
+                            </span>
+                          ) : isUrgent ? (
+                            <span className="flex items-center gap-1 text-orange-400 text-xs font-sans">
+                              <Clock className="h-3.5 w-3.5" />
+                              {days} {isPt ? "dias" : "days"}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-emerald-400 text-xs font-sans">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {days} {isPt ? "dias" : "days"}
+                            </span>
+                          )}
+                        </div>
+                      ) : "—"}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        {!isPremium && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs font-sans border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                            onClick={() => updatePlan.mutate({ userId: u.id, plan: "premium", planType: "monthly" })}
+                          >
+                            <Crown className="h-3 w-3 mr-1" />
+                            {isPt ? "Ativar Premium" : "Activate Premium"}
+                          </Button>
+                        )}
+                        {isPremium && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs font-sans border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+                            onClick={() => updatePlan.mutate({ userId: u.id, plan: "premium", durationDays: 30 })}
+                          >
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            +30d
+                          </Button>
+                        )}
+                        {(isPremium || isExpired) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs font-sans border-red-500/40 text-red-400 hover:bg-red-500/10"
+                            onClick={() => updatePlan.mutate({ userId: u.id, plan: "free" })}
+                          >
+                            <XCircle className="h-3 w-3 mr-1" />
+                            {isPt ? "Cancelar" : "Cancel"}
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground font-sans">
+        {users.length} {isPt ? "assinantes exibidos" : "subscribers shown"}
+        {expiringCount > 0 && (
+          <span className="ml-2 text-orange-400">
+            · {expiringCount} {isPt ? "expirando em 7 dias" : "expiring within 7 days"}
+          </span>
+        )}
+      </p>
     </div>
   );
 }

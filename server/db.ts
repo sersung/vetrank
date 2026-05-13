@@ -74,6 +74,13 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
+  // Set trial plan for new users (only on INSERT, not on conflict update)
+  const trialNow = new Date();
+  const trialEnd = new Date(trialNow.getTime() + 7 * 24 * 60 * 60 * 1000);
+  if (values.plan === undefined) values.plan = "trial";
+  if (values.trialStartedAt === undefined) values.trialStartedAt = trialNow;
+  if (values.trialEndsAt === undefined) values.trialEndsAt = trialEnd;
+
   await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet as any });
 }
 
