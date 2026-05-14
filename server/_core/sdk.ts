@@ -40,8 +40,8 @@ class SDKServer {
         email: supabaseUser.email ?? null,
         loginMethod: (supabaseUser.app_metadata?.provider ?? null) as string | null,
         lastSignedIn: new Date(),
-        // Grant admin role to owner
-        ...(supabaseUser.email === ENV.ownerEmail ? { role: "admin" as const } : {}),
+        // Grant admin role to owners
+        ...(supabaseUser.email && ENV.ownerEmails.includes(supabaseUser.email) ? { role: "admin" as const } : {}),
       });
       user = await db.getUserByOpenId(openId);
     }
