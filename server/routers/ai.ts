@@ -23,7 +23,14 @@ export const aiRouter = router({
         language: z.enum(["pt", "en"]).default("pt"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      // Require active trial or premium plan
+      const now = new Date();
+      const isTrialActive = ctx.user.plan === "trial" && ctx.user.trialEndsAt != null && ctx.user.trialEndsAt > now;
+      const isPremiumActive = ctx.user.plan === "premium" && (!ctx.user.premiumEndsAt || ctx.user.premiumEndsAt > now);
+      if (ctx.user.role === "user" && !isTrialActive && !isPremiumActive) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Recurso exclusivo para assinantes premium." });
+      }
       const question = await getQuestionById(input.questionId);
       if (!question) throw new TRPCError({ code: "NOT_FOUND" });
 

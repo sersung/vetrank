@@ -77,14 +77,31 @@ export const questionsRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
-      const isPremium = ctx.user ? undefined : false;
+      const now = new Date();
+      const canSeePremium =
+        ctx.user &&
+        (ctx.user.role !== "user" ||
+          ctx.user.plan === "premium" ||
+          (ctx.user.plan === "trial" && ctx.user.trialEndsAt != null && ctx.user.trialEndsAt > now));
+      const isPremium = canSeePremium ? undefined : false;
       return getQuestions({ ...input, isPremium });
     }),
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const q = await getQuestionById(input.id);
       if (!q) throw new TRPCError({ code: "NOT_FOUND" });
+      // Strip answer for unauthenticated or free-plan users
+      const now = new Date();
+      const hasAccess =
+        ctx.user &&
+        (ctx.user.role !== "user" ||
+          ctx.user.plan === "premium" ||
+          (ctx.user.plan === "trial" && ctx.user.trialEndsAt != null && ctx.user.trialEndsAt > now));
+      if (!hasAccess) {
+        const { correctOption, explanationPt, explanationEn, ...rest } = q;
+        return { ...rest, correctOption: null, explanationPt: null, explanationEn: null };
+      }
       return q;
     }),
   disciplines: publicProcedure.query(() => getDisciplines()),
@@ -223,7 +240,7 @@ export const questionsRouter = router({
             isPremium: z.boolean().default(false),
             imageUrl: z.string().optional(),
           })
-        ),
+        ).max(500),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -291,7 +308,13 @@ export const discursiveRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
-      const isPremium = ctx.user ? undefined : false;
+      const now = new Date();
+      const canSeePremium =
+        ctx.user &&
+        (ctx.user.role !== "user" ||
+          ctx.user.plan === "premium" ||
+          (ctx.user.plan === "trial" && ctx.user.trialEndsAt != null && ctx.user.trialEndsAt > now));
+      const isPremium = canSeePremium ? undefined : false;
       return getDiscursiveQuestions({ ...input, isPremium });
     }),
 
@@ -300,8 +323,14 @@ export const discursiveRouter = router({
     .query(async ({ input, ctx }) => {
       const q = await getDiscursiveQuestionById(input.id);
       if (!q) throw new TRPCError({ code: "NOT_FOUND" });
-      // Gate answer behind premium/trial
-      if (!ctx.user || (ctx.user.plan === "free" && ctx.user.role === "user")) {
+      // Gate answer behind premium/active trial
+      const now = new Date();
+      const hasAccess =
+        ctx.user &&
+        (ctx.user.role !== "user" ||
+          ctx.user.plan === "premium" ||
+          (ctx.user.plan === "trial" && ctx.user.trialEndsAt != null && ctx.user.trialEndsAt > now));
+      if (!hasAccess) {
         return { ...q, expectedAnswerPt: null, expectedAnswerEn: null };
       }
       return q;

@@ -56,6 +56,12 @@ export const coordinatorRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, input.userId)).limit(1);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+      const elevated = ["coordinator", "superuser", "admin"];
+      if (elevated.includes(target.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Não é possível alterar o papel de um coordenador ou superior." });
+      }
       await db.update(users).set({ role: "teacher" }).where(eq(users.id, input.userId));
       await db.insert(activityLog).values({
         userId: ctx.user.id,
@@ -72,6 +78,12 @@ export const coordinatorRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, input.userId)).limit(1);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+      const elevated = ["coordinator", "superuser", "admin"];
+      if (elevated.includes(target.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Não é possível rebaixar um coordenador ou superior." });
+      }
       await db.update(users).set({ role: "user" }).where(eq(users.id, input.userId));
       await db.insert(activityLog).values({
         userId: ctx.user.id,

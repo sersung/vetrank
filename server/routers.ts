@@ -24,7 +24,12 @@ import { plansRouter } from "./routers/plans";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(({ ctx }) => {
+      if (!ctx.user) return null;
+      // Return only the fields the client needs — never expose openId, cpf, phone, or referral internals
+      const { openId, cpf, phone, referralCode, referredBy, lgpdConsentAt, lgpdConsentVersion, ...safe } = ctx.user;
+      return safe;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

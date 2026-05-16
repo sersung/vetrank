@@ -87,11 +87,20 @@ export const practiceRouter = router({
       subjectId: z.number().optional(),
       difficulty: z.enum(["easy", "medium", "hard"]).optional(),
       selectedOption: z.string(),
-      isCorrect: z.boolean(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Compute correctness server-side — never trust the client
+      const [q] = await db
+        .select({ correctOption: questions.correctOption })
+        .from(questions)
+        .where(eq(questions.id, input.questionId))
+        .limit(1);
+      if (!q) throw new TRPCError({ code: "NOT_FOUND" });
+      const isCorrect = q.correctOption === input.selectedOption;
+
       await db.insert(practiceSessions).values({
         userId: ctx.user.id,
         questionId: input.questionId,
@@ -99,15 +108,15 @@ export const practiceRouter = router({
         subjectId: input.subjectId,
         difficulty: input.difficulty,
         selectedOption: input.selectedOption,
-        isCorrect: input.isCorrect,
+        isCorrect,
       });
       // Award small XP for practice
-      if (input.isCorrect) {
+      if (isCorrect) {
         await db.execute(`UPDATE users SET xp = xp + 2, totalCorrect = totalCorrect + 1, totalQuestions = totalQuestions + 1 WHERE id = ${ctx.user.id}`);
       } else {
         await db.execute(`UPDATE users SET totalQuestions = totalQuestions + 1 WHERE id = ${ctx.user.id}`);
       }
-      return { success: true };
+      return { success: true, isCorrect };
     }),
 
   // ── Get practice stats ─────────────────────────────────────────────────────

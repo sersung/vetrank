@@ -54,7 +54,9 @@ export const examsRouter = router({
       // Update login streak
       await updateLoginStreak(ctx.user.id);
 
-      return { examId, questions };
+      // Strip answer key — client must not receive correctOption before completing the exam
+      const questionsForClient = questions.map(({ correctOption, explanationPt, explanationEn, ...rest }) => rest);
+      return { examId, questions: questionsForClient };
     }),
 
   getById: protectedProcedure
@@ -108,6 +110,7 @@ export const examsRouter = router({
       const exam = await getExamById(input.examId);
       if (!exam) throw new TRPCError({ code: "NOT_FOUND" });
       if (exam.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (exam.status !== "in_progress") throw new TRPCError({ code: "BAD_REQUEST", message: "Exam already completed" });
 
       const result = await completeExam(input.examId, ctx.user.id, input.timeSpentSeconds);
       return result;

@@ -7,7 +7,7 @@ export const leaderboardRouter = router({
     .input(
       z.object({
         type: z.enum(["weekly", "monthly", "alltime"]).default("weekly"),
-        limit: z.number().default(50),
+        limit: z.number().min(1).max(200).default(50),
       })
     )
     .query(async ({ input }) => {

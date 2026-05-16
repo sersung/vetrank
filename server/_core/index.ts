@@ -37,6 +37,13 @@ const questionLimiter = rateLimit({
 /** Detect bulk scraping: block IPs that fetch >30 questions in 10 seconds */
 const scrapeDetector = (() => {
   const counts = new Map<string, { count: number; resetAt: number }>();
+  // Evict expired entries every minute to prevent unbounded memory growth
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of counts) {
+      if (now > entry.resetAt) counts.delete(ip);
+    }
+  }, 60_000).unref();
   return (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip ?? "unknown";
     const now = Date.now();
@@ -89,13 +96,17 @@ async function startServer() {
   // Mercado Pago webhook — must be registered before tRPC
   app.post("/api/mp/webhook", handleMPWebhook);
 
-  // Scheduled task endpoint: trigger expiry email check
-  app.post("/api/scheduled/send-expiry-emails", async (_req, res) => {
+  // Scheduled task endpoint: trigger expiry email check (protected by shared secret)
+  app.post("/api/scheduled/send-expiry-emails", async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || req.headers["x-cron-secret"] !== cronSecret) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     try {
       const result = await runExpiryEmailCheck();
       res.json({ success: true, ...result });
     } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
+      res.status(500).json({ success: false, error: "Internal error" });
     }
   });
 
