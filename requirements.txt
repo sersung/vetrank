@@ -1,0 +1,63 @@
+# ============================================================
+# VetRank2 — Requisitos do Sistema e Variáveis de Ambiente
+# ============================================================
+# Este projeto é Node.js. O equivalente do requirements.txt
+# para dependências npm está no arquivo package.json.
+# ============================================================
+
+# ------------------------------------------------------------
+# REQUISITOS DE SISTEMA
+# ------------------------------------------------------------
+Node.js     >= 20.x  (LTS recomendado)
+pnpm        >= 10.x  (gerenciador de pacotes)
+
+# ------------------------------------------------------------
+# SERVIÇOS EXTERNOS OBRIGATÓRIOS
+# ------------------------------------------------------------
+
+# 1. Supabase (banco de dados + autenticação + storage)
+#    https://supabase.com
+SUPABASE_URL=                   # Ex: https://xyzxyz.supabase.co
+SUPABASE_ANON_KEY=              # Chave pública (anon)
+SUPABASE_SERVICE_ROLE_KEY=      # Chave privada (service role) — NUNCA expor no frontend
+
+# 2. Banco de dados PostgreSQL (string de conexão direta)
+#    Obtida em: Supabase > Project Settings > Database > Connection string (Transaction mode)
+DATABASE_URL=                   # postgresql://postgres.xxx:password@aws-0-sa-east-1.pooler.supabase.com:6543/postgres
+
+# 3. Administradores do sistema
+#    Emails separados por vírgula — esses usuários recebem role "admin" automaticamente
+OWNER_EMAIL=                    # Ex: admin1@email.com,admin2@email.com
+
+# ------------------------------------------------------------
+# SERVIÇOS OPCIONAIS (funcionalidades avançadas)
+# ------------------------------------------------------------
+
+# 4. LLM / Inteligência Artificial (extração de questões, chat IA)
+OPENAI_API_KEY=                 # sk-...
+LLM_API_URL=                    # Padrão: https://api.openai.com (opcional)
+
+# 5. Pagamentos (Mercado Pago)
+MERCADOPAGO_ACCESS_TOKEN=       # APP_USR-...
+
+# 6. E-mail transacional (Resend)
+RESEND_API_KEY=                 # re_...
+
+# ------------------------------------------------------------
+# BANCO DE DADOS — DETALHES
+# ------------------------------------------------------------
+# Engine:  PostgreSQL 15+
+# ORM:     DrizzleORM
+# Host:    Supabase (região: sa-east-1 — São Paulo)
+# Tabelas: 27 tabelas principais
+#          users, questions, exams, disciplines, subjects,
+#          trails, trail_modules, trail_module_questions,
+#          trail_enrollments, trail_module_progress,
+#          trail_module_answers, badges, user_badges,
+#          xp_events, weekly_xp, monthly_xp,
+#          practice_sessions, discursive_questions,
+#          announcements, question_reports,
+#          question_assignments, payments,
+#          referrals, referral_bonuses,
+#          activity_log, teacher_permissions, exam_answers
+# RLS:     Habilitado em todas as tabelas
