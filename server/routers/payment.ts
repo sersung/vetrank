@@ -134,7 +134,7 @@ export const paymentRouter = router({
     }
 
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
     await db.update(users).set({
       plan: "trial",

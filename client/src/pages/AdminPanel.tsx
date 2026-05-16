@@ -1026,12 +1026,24 @@ export default function AdminPanel() {
                     ))}
                   </div>
 
-                  {customerDetail.trialEndsAt && (
-                    <div className="text-xs text-muted-foreground font-sans p-3 bg-primary/5 rounded-lg border border-primary/20">
-                      <span className="font-medium text-primary">{language === "pt" ? "Trial expira:" : "Trial expires:"}</span>{" "}
-                      {new Date(customerDetail.trialEndsAt).toLocaleDateString()}
-                    </div>
-                  )}
+                  {customerDetail.trialEndsAt && (() => {
+                    const trialEnd = new Date(customerDetail.trialEndsAt);
+                    const now = new Date();
+                    const expired = trialEnd <= now;
+                    const daysLeft = expired ? 0 : Math.ceil((trialEnd.getTime() - now.getTime()) / 86400000);
+                    return (
+                      <div className={`text-xs font-sans p-3 rounded-lg border ${expired ? "bg-red-500/5 border-red-500/20 text-red-400" : "bg-primary/5 border-primary/20 text-muted-foreground"}`}>
+                        <span className={`font-medium ${expired ? "text-red-400" : "text-primary"}`}>
+                          {expired
+                            ? (language === "pt" ? "Trial expirado:" : "Trial expired:")
+                            : (language === "pt" ? "Trial expira em:" : "Trial expires in:")}
+                        </span>{" "}
+                        {expired
+                          ? trialEnd.toLocaleDateString()
+                          : `${daysLeft} ${language === "pt" ? "dias" : "days"} (${trialEnd.toLocaleDateString()})`}
+                      </div>
+                    );
+                  })()}
                   {customerDetail.premiumEndsAt && (
                     <div className="text-xs text-muted-foreground font-sans p-3 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
                       <span className="font-medium text-yellow-400">{language === "pt" ? "Premium expira:" : "Premium expires:"}</span>{" "}
@@ -1983,7 +1995,11 @@ function PlanosTab() {
                       <td className="px-3 py-2">
                         {u.trialEndsAt ? (
                           <div className="text-xs">
-                            <div>{(u as any).trialDays != null ? `${(u as any).trialDays} dias restantes` : "—"}</div>
+                            {new Date(u.trialEndsAt) <= new Date() ? (
+                              <div className="text-red-400">Expirado</div>
+                            ) : (
+                              <div>{(u as any).trialDays != null ? `${(u as any).trialDays} dias restantes` : "—"}</div>
+                            )}
                             <div className="text-muted-foreground">{new Date(u.trialEndsAt).toLocaleDateString("pt-BR")}</div>
                           </div>
                         ) : <span className="text-muted-foreground text-xs">Não iniciado</span>}

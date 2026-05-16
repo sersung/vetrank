@@ -297,6 +297,12 @@ class SDKServer {
       lastSignedIn: signedInAt,
     });
 
+    // Auto-expire trial if the trial period has ended
+    if (user.plan === "trial" && user.trialEndsAt && user.trialEndsAt <= new Date()) {
+      await db.updateUser(user.id, { plan: "free" });
+      user = { ...user, plan: "free" };
+    }
+
     return user;
   }
 }
