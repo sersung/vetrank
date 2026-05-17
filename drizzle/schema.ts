@@ -193,6 +193,10 @@ export const questions = mysqlTable("questions", {
   isValidated: boolean("isValidated").default(false).notNull(),
   validatedBy: int("validatedBy"),
   validatedAt: timestamp("validatedAt"),
+  // Item model (M1–M10) — see shared/questionModels.ts
+  modelId: varchar("modelId", { length: 4 }),  // "M1"|"M2"|...|"M10"|null (legado)
+  grupoId: varchar("grupoId", { length: 64 }),  // M10: ID do bloco de alternativas constantes
+  posicaoBloco: int("posicaoBloco"),            // M10: posição dentro do bloco (1, 2, 3…)
   // Status flags
   isAnulada: boolean("isAnulada").default(false).notNull(),
   isDesatualizada: boolean("isDesatualizada").default(false).notNull(),

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ASSERTION_REASON_OPTIONS, type QuestionType } from "@/components/QuestionFormats";
 import { cn } from "@/lib/utils";
+import { MODEL_MAP } from "@shared/questionModels";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,19 +24,23 @@ export interface QuestionData {
   textPt: string;
   textEn?: string;
   questionType?: QuestionType | string;
+  modelId?: string;           // M1–M10
   options: QuestionOption[];
   correctOption: string;
   explanationPt?: string;
   explanationEn?: string;
   assertion1?: string;
   assertion2?: string;
-  formatData?: any; // JSON blob from DB
+  formatData?: any;
   imageUrl?: string;
   difficulty?: string;
   disciplineName?: string;
   subjectTag?: string;
   author?: string;
+  banca?: string;
   year?: number;
+  isAnulada?: boolean;
+  isDesatualizada?: boolean;
 }
 
 interface QuestionRendererProps {
@@ -97,11 +102,20 @@ export default function QuestionRenderer({
     <div className="space-y-4">
       {/* Meta badges */}
       <div className="flex flex-wrap gap-2">
+        {/* Model badge M1–M10 */}
+        {question.modelId && MODEL_MAP[question.modelId as keyof typeof MODEL_MAP] && (
+          <Badge className="text-xs font-sans bg-violet-500/20 text-violet-300 border-violet-500/30" title={MODEL_MAP[question.modelId as keyof typeof MODEL_MAP].nome_modelo}>
+            {question.modelId}
+          </Badge>
+        )}
         {question.disciplineName && (
           <Badge variant="outline" className="text-xs font-sans">{question.disciplineName}</Badge>
         )}
         {question.subjectTag && (
           <Badge variant="secondary" className="text-xs font-sans">{question.subjectTag}</Badge>
+        )}
+        {question.banca && (
+          <Badge variant="outline" className="text-xs font-sans border-blue-500/30 text-blue-400">{question.banca}</Badge>
         )}
         {question.year && (
           <Badge variant="outline" className="text-xs font-sans">{question.year}</Badge>
@@ -109,13 +123,23 @@ export default function QuestionRenderer({
         {question.author && (
           <span className="text-xs text-muted-foreground font-sans">{question.author}</span>
         )}
+        {question.isAnulada && (
+          <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Anulada</Badge>
+        )}
+        {question.isDesatualizada && (
+          <Badge className="text-xs bg-gray-500/20 text-gray-400 border-gray-500/30">Desatualizada</Badge>
+        )}
         <Badge variant="outline" className={cn("text-xs font-sans ml-auto", {
+          "border-sky-500/50 text-sky-400": question.difficulty === "very_easy",
           "border-green-500/50 text-green-400": question.difficulty === "easy",
           "border-yellow-500/50 text-yellow-400": question.difficulty === "medium",
           "border-red-500/50 text-red-400": question.difficulty === "hard",
+          "border-purple-500/50 text-purple-400": question.difficulty === "very_hard",
         })}>
-          {question.difficulty === "easy" ? (lang === "pt" ? "Fácil" : "Easy") :
+          {question.difficulty === "very_easy" ? "Muito Fácil" :
+           question.difficulty === "easy" ? (lang === "pt" ? "Fácil" : "Easy") :
            question.difficulty === "hard" ? (lang === "pt" ? "Difícil" : "Hard") :
+           question.difficulty === "very_hard" ? "Muito Difícil" :
            (lang === "pt" ? "Médio" : "Medium")}
         </Badge>
       </div>

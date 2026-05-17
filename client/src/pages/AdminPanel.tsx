@@ -72,6 +72,7 @@ import {
   type TrueFalseStatement,
   type OrderingStep,
 } from "@/components/QuestionFormats";
+import { MODEL_OPTIONS, getDbTypeForModel } from "@shared/questionModels";
 
 export default function AdminPanel() {
   const t = useT();
@@ -221,8 +222,19 @@ export default function AdminPanel() {
       year: editQuestionData.year ? String(editQuestionData.year) : "",
       isPremium: editQuestionData.isPremium,
       questionType: editQuestionData.questionType as QuestionType,
+      modelId: (editQuestionData as any).modelId ?? "",
+      grupoId: (editQuestionData as any).grupoId ?? "",
+      posicaoBloco: (editQuestionData as any).posicaoBloco ? String((editQuestionData as any).posicaoBloco) : "",
       subjectTag: editQuestionData.subjectTag ?? "",
       author: editQuestionData.author ?? "",
+      banca: (editQuestionData as any).banca ?? "",
+      instituicao: (editQuestionData as any).instituicao ?? "",
+      cargo: (editQuestionData as any).cargo ?? "",
+      carreira: (editQuestionData as any).carreira ?? "",
+      areaFormacao: (editQuestionData as any).areaFormacao ?? "",
+      escolaridade: (editQuestionData as any).escolaridade ?? "",
+      isAnulada: (editQuestionData as any).isAnulada ?? false,
+      isDesatualizada: (editQuestionData as any).isDesatualizada ?? false,
       correctOption: editQuestionData.correctOption,
       explanationPt: editQuestionData.explanationPt ?? "",
       explanationEn: editQuestionData.explanationEn ?? "",
@@ -252,8 +264,19 @@ export default function AdminPanel() {
         year: editForm.year ? parseInt(editForm.year) : undefined,
         isPremium: editForm.isPremium,
         questionType: editForm.questionType,
+        modelId: editForm.modelId || undefined,
+        grupoId: editForm.grupoId || undefined,
+        posicaoBloco: editForm.posicaoBloco ? parseInt(editForm.posicaoBloco) : undefined,
         subjectTag: editForm.subjectTag || undefined,
         author: editForm.author || undefined,
+        banca: editForm.banca || undefined,
+        instituicao: editForm.instituicao || undefined,
+        cargo: editForm.cargo || undefined,
+        carreira: editForm.carreira || undefined,
+        areaFormacao: editForm.areaFormacao || undefined,
+        escolaridade: editForm.escolaridade || undefined,
+        isAnulada: editForm.isAnulada,
+        isDesatualizada: editForm.isDesatualizada,
         correctOption: editForm.correctOption,
         explanationPt: editForm.explanationPt || undefined,
         explanationEn: editForm.explanationEn || undefined,
@@ -290,9 +313,13 @@ export default function AdminPanel() {
     textPt: "", textEn: "", disciplineId: "", subjectId: "",
     difficulty: "medium", year: "", isPremium: false,
     questionType: "multiple_choice" as QuestionType,
-    subjectTag: "", author: "",
+    modelId: "" as string,
+    grupoId: "", posicaoBloco: "",
+    subjectTag: "", author: "", banca: "", instituicao: "",
+    cargo: "", carreira: "", areaFormacao: "", escolaridade: "",
     correctOption: "A", explanationPt: "", explanationEn: "",
     assertion1: "", assertion2: "",
+    isAnulada: false, isDesatualizada: false,
     // format-specific
     options: defaultOptions as Array<{ id: string; textPt: string; textEn?: string }>,
     formatData: {} as FormatData,
@@ -419,10 +446,13 @@ export default function AdminPanel() {
   const resetNewQuestion = () => setNewQuestion({
     textPt: "", textEn: "", disciplineId: "", subjectId: "",
     difficulty: "medium", year: "", isPremium: false,
-    questionType: "multiple_choice",
-    subjectTag: "", author: "",
+    questionType: "multiple_choice" as QuestionType,
+    modelId: "", grupoId: "", posicaoBloco: "",
+    subjectTag: "", author: "", banca: "", instituicao: "",
+    cargo: "", carreira: "", areaFormacao: "", escolaridade: "",
     correctOption: "A", explanationPt: "", explanationEn: "",
     assertion1: "", assertion2: "",
+    isAnulada: false, isDesatualizada: false,
     options: [
       { id: "A", textPt: "", textEn: "" },
       { id: "B", textPt: "", textEn: "" },
@@ -430,7 +460,7 @@ export default function AdminPanel() {
       { id: "D", textPt: "", textEn: "" },
       { id: "E", textPt: "", textEn: "" },
     ],
-    formatData: {},
+    formatData: {} as FormatData,
   });
 
   const handleAddQuestion = async () => {
@@ -477,12 +507,23 @@ export default function AdminPanel() {
         textEn: newQuestion.textEn || undefined,
         disciplineId: parseInt(newQuestion.disciplineId),
         subjectId: newQuestion.subjectId ? parseInt(newQuestion.subjectId) : undefined,
-        difficulty: newQuestion.difficulty as "easy" | "medium" | "hard",
+        difficulty: newQuestion.difficulty as any,
         year: newQuestion.year ? parseInt(newQuestion.year) : undefined,
         isPremium: newQuestion.isPremium,
         questionType: qType,
+        modelId: newQuestion.modelId || undefined,
+        grupoId: newQuestion.grupoId || undefined,
+        posicaoBloco: newQuestion.posicaoBloco ? parseInt(newQuestion.posicaoBloco) : undefined,
         subjectTag: newQuestion.subjectTag || undefined,
         author: newQuestion.author || undefined,
+        banca: newQuestion.banca || undefined,
+        instituicao: newQuestion.instituicao || undefined,
+        cargo: newQuestion.cargo || undefined,
+        carreira: newQuestion.carreira || undefined,
+        areaFormacao: newQuestion.areaFormacao || undefined,
+        escolaridade: (newQuestion.escolaridade || undefined) as any,
+        isAnulada: newQuestion.isAnulada,
+        isDesatualizada: newQuestion.isDesatualizada,
         options,
         correctOption: qType === "discursive" ? "N/A" : newQuestion.correctOption,
         explanationPt: newQuestion.explanationPt || undefined,
@@ -1540,6 +1581,64 @@ export default function AdminPanel() {
             <DialogTitle className="font-serif">{language === "pt" ? "Nova Questão" : "New Question"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Model selector M1–M10 */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground font-sans">
+                Modelo de Item (M1–M10)
+              </label>
+              <Select
+                value={newQuestion.modelId || "__none__"}
+                onValueChange={(v) => {
+                  const mid = v === "__none__" ? "" : v;
+                  const dbType = mid ? getDbTypeForModel(mid) : newQuestion.questionType;
+                  setNewQuestion((p) => ({
+                    ...p,
+                    modelId: mid,
+                    questionType: (dbType || p.questionType) as QuestionType,
+                    correctOption: "A",
+                    options: defaultOptions,
+                    formatData: {},
+                  }));
+                }}
+              >
+                <SelectTrigger className="bg-background font-sans">
+                  <SelectValue placeholder="Selecione o modelo de item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Sem modelo definido —</SelectItem>
+                  {MODEL_OPTIONS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      <span className="font-sans">{m.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {newQuestion.modelId && (
+                <p className="text-xs text-emerald-400 font-sans px-1">
+                  Tipo DB automático: <strong>{getDbTypeForModel(newQuestion.modelId)}</strong>
+                </p>
+              )}
+            </div>
+
+            {/* M10 block fields */}
+            {newQuestion.modelId === "M10" && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="grupoId do bloco (ex: BLOCO_2024_Q1)"
+                  value={newQuestion.grupoId}
+                  onChange={(e) => setNewQuestion((p) => ({ ...p, grupoId: e.target.value }))}
+                  className="bg-background font-sans text-sm"
+                />
+                <Input
+                  placeholder="Posição no bloco (1, 2, 3...)"
+                  type="number"
+                  value={newQuestion.posicaoBloco}
+                  onChange={(e) => setNewQuestion((p) => ({ ...p, posicaoBloco: e.target.value }))}
+                  className="bg-background font-sans text-sm"
+                />
+              </div>
+            )}
+
             {/* Question Type Selector */}
             <Select value={newQuestion.questionType} onValueChange={(v) => setNewQuestion((p) => ({ ...p, questionType: v as QuestionType, correctOption: "A", options: defaultOptions, formatData: {} }))}>
               <SelectTrigger className="bg-background font-sans">
@@ -1738,6 +1837,27 @@ export default function AdminPanel() {
             </div>
           ) : (
             <div className="space-y-4 py-2">
+              {/* Model selector M1–M10 */}
+              <div>
+                <label className="text-xs font-sans text-muted-foreground mb-1 block">Modelo de Item (M1–M10)</label>
+                <Select
+                  value={editForm.modelId || "__none__"}
+                  onValueChange={(v) => {
+                    const mid = v === "__none__" ? "" : v;
+                    const dbType = mid ? getDbTypeForModel(mid) : editForm.questionType;
+                    setEditForm((p: any) => ({ ...p, modelId: mid, questionType: dbType || p.questionType }));
+                  }}
+                >
+                  <SelectTrigger className="bg-background font-sans text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Sem modelo —</SelectItem>
+                    {MODEL_OPTIONS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Enunciado */}
               <div>
                 <label className="text-xs font-sans text-muted-foreground mb-1 block">{language === "pt" ? "Enunciado (PT)" : "Statement (PT)"} *</label>

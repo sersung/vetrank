@@ -147,11 +147,20 @@ export const questionsRouter = router({
       z.object({
         disciplineId: z.number(),
         subjectId: z.number().optional(),
-        difficulty: z.enum(["easy", "medium", "hard"]),
+        difficulty: z.enum(["very_easy", "easy", "medium", "hard", "very_hard"]),
         year: z.number().optional(),
         questionType: questionTypeEnum.default("multiple_choice"),
+        modelId: z.string().max(4).optional(),   // M1–M10
+        grupoId: z.string().max(64).optional(),  // M10 block id
+        posicaoBloco: z.number().optional(),     // M10 position in block
         subjectTag: z.string().optional(),
         author: z.string().optional(),
+        banca: z.string().optional(),
+        instituicao: z.string().optional(),
+        cargo: z.string().optional(),
+        carreira: z.string().optional(),
+        areaFormacao: z.string().optional(),
+        escolaridade: z.enum(["fundamental", "medio", "superior"]).optional(),
         textPt: z.string().min(5),
         textEn: z.string().optional(),
         options: z.array(
@@ -164,6 +173,8 @@ export const questionsRouter = router({
         assertion2: z.string().optional(),
         formatData: formatDataSchema,
         isPremium: z.boolean().default(false),
+        isAnulada: z.boolean().default(false),
+        isDesatualizada: z.boolean().default(false),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -178,11 +189,20 @@ export const questionsRouter = router({
         id: z.number(),
         disciplineId: z.number().optional(),
         subjectId: z.number().optional(),
-        difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+        difficulty: z.enum(["very_easy", "easy", "medium", "hard", "very_hard"]).optional(),
         year: z.number().optional(),
         questionType: questionTypeEnum.optional(),
+        modelId: z.string().max(4).optional(),
+        grupoId: z.string().max(64).optional(),
+        posicaoBloco: z.number().optional(),
         subjectTag: z.string().optional(),
         author: z.string().optional(),
+        banca: z.string().optional(),
+        instituicao: z.string().optional(),
+        cargo: z.string().optional(),
+        carreira: z.string().optional(),
+        areaFormacao: z.string().optional(),
+        escolaridade: z.enum(["fundamental", "medio", "superior"]).optional(),
         textPt: z.string().optional(),
         textEn: z.string().optional(),
         options: z.array(z.object({ id: z.string(), textPt: z.string(), textEn: z.string().optional() })).optional(),
@@ -193,6 +213,8 @@ export const questionsRouter = router({
         assertion2: z.string().optional(),
         formatData: formatDataSchema,
         isPremium: z.boolean().optional(),
+        isAnulada: z.boolean().optional(),
+        isDesatualizada: z.boolean().optional(),
         active: z.boolean().optional(),
       })
     )
