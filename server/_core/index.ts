@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerLocalAuthRoutes } from "./localAuth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -85,6 +86,9 @@ async function startServer() {
 
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  if (process.env.NODE_ENV !== "production") {
+    registerLocalAuthRoutes(app);
+  }
 
   // Mercado Pago webhook — must be registered before tRPC
   app.post("/api/mp/webhook", handleMPWebhook);
