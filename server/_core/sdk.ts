@@ -270,8 +270,9 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
+    // If user not in DB and Manus Forge is configured, try to sync from Manus OAuth
+    // On self-hosted VPS (no Forge), users are always created at login time via Google OAuth
+    if (!user && ENV.forgeApiUrl && ENV.forgeApiKey) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
         await db.upsertUser({
@@ -283,7 +284,7 @@ class SDKServer {
         });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
+        console.error("[Auth] Failed to sync user from Manus OAuth:", error);
         throw ForbiddenError("Failed to sync user info");
       }
     }

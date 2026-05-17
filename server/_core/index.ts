@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerLocalAuthRoutes } from "./localAuth";
+import { registerGoogleAuthRoutes } from "./googleAuth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -85,9 +86,10 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
+  registerOAuthRoutes(app);        // Manus OAuth (ativo quando VITE_APP_ID ≠ local-dev)
+  registerGoogleAuthRoutes(app);   // Google OAuth (ativo quando GOOGLE_CLIENT_ID definido)
   if (process.env.NODE_ENV !== "production") {
-    registerLocalAuthRoutes(app);
+    registerLocalAuthRoutes(app);  // Login local (apenas dev)
   }
 
   // Mercado Pago webhook — must be registered before tRPC

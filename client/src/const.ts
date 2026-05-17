@@ -2,10 +2,21 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
 // Generate login URL at runtime so redirect URI reflects the current origin.
 export const getLoginUrl = () => {
+  // ── Dev local ──────────────────────────────────────────────────────────────
   if (import.meta.env.VITE_APP_ID === "local-dev") {
     return "/api/dev/login";
   }
 
+  // ── Google OAuth (VPS auto-hospedado) ──────────────────────────────────────
+  // Ativa quando VITE_AUTH_PROVIDER=google ou quando APP_ID não está definido
+  if (
+    import.meta.env.VITE_AUTH_PROVIDER === "google" ||
+    !import.meta.env.VITE_APP_ID
+  ) {
+    return "/api/auth/google";
+  }
+
+  // ── Manus OAuth (deployment no Manus hosted) ──────────────────────────────
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
