@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-Content \"d:\\\\vetrank\\\\drizzle\\\\*.sql\")",
+      "Bash(Select-String \"INDEX|KEY\")"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lte, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, like, lte, not, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   Badge,
@@ -384,30 +384,27 @@ export async function getQuestions(filters: QuestionFilters): Promise<{ question
     }
   })();
 
-  // "Minhas questões" filter: join with practice_sessions
+  // "Minhas questões" — correlated EXISTS subquery (single SQL, no Node.js round-trip)
   if (filters.myAnswers && filters.userId) {
     const uid = filters.userId;
-    const answeredSubquery = db
-      .selectDistinct({ questionId: practiceSessions.questionId })
-      .from(practiceSessions)
-      .where(eq(practiceSessions.userId, uid));
+    const baseMatch = [
+      eq(practiceSessions.userId, uid),
+      eq(practiceSessions.questionId, questions.id),
+    ];
 
     if (filters.myAnswers === "unanswered") {
-      const answeredIds = (await answeredSubquery).map(r => r.questionId);
-      if (answeredIds.length > 0) conditions.push(not(inArray(questions.id, answeredIds)));
+      conditions.push(not(exists(
+        db.select({ one: sql`1` }).from(practiceSessions).where(and(...baseMatch))
+      )));
     } else {
-      const sessionConditions = [eq(practiceSessions.userId, uid)];
-      if (filters.myAnswers === "correct") sessionConditions.push(eq(practiceSessions.isCorrect, true));
-      if (filters.myAnswers === "incorrect") sessionConditions.push(eq(practiceSessions.isCorrect, false));
-
-      const matchedIds = (
-        await db.selectDistinct({ questionId: practiceSessions.questionId })
-          .from(practiceSessions)
-          .where(and(...sessionConditions))
-      ).map(r => r.questionId);
-
-      if (matchedIds.length === 0) return { questions: [], total: 0 };
-      conditions.push(inArray(questions.id, matchedIds));
+      const isCorrectFilter =
+        filters.myAnswers === "correct"   ? eq(practiceSessions.isCorrect, true)  :
+        filters.myAnswers === "incorrect" ? eq(practiceSessions.isCorrect, false) :
+        undefined;
+      conditions.push(exists(
+        db.select({ one: sql`1` }).from(practiceSessions)
+          .where(and(...baseMatch, ...(isCorrectFilter ? [isCorrectFilter] : [])))
+      ));
     }
   }
 

@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   int,
   json,
   mysqlEnum,
@@ -205,7 +206,26 @@ export const questions = mysqlTable("questions", {
   isPremium: boolean("isPremium").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  // Filtros mais frequentes nas queries de listagem e simulados
+  index("idx_q_discipline_subject").on(t.disciplineId, t.subjectId),
+  index("idx_q_active_discipline").on(t.active, t.disciplineId),
+  index("idx_q_difficulty").on(t.difficulty),
+  index("idx_q_year").on(t.year),
+  index("idx_q_question_type").on(t.questionType),
+  index("idx_q_model_id").on(t.modelId),
+  // Filtros de classificação/proveniência adicionados no sprint de filtros
+  index("idx_q_banca").on(t.banca),
+  index("idx_q_carreira").on(t.carreira),
+  index("idx_q_area_formacao").on(t.areaFormacao),
+  index("idx_q_escolaridade").on(t.escolaridade),
+  // Flags de status — sempre combinados com active=true
+  index("idx_q_flags").on(t.isAnulada, t.isDesatualizada),
+  index("idx_q_validated").on(t.isValidated, t.status),
+  // Ordenação por data e M10 bloco
+  index("idx_q_created_at").on(t.createdAt),
+  index("idx_q_grupo_id").on(t.grupoId, t.posicaoBloco),
+]);
 
 export type Question = typeof questions.$inferSelect;
 export type InsertQuestion = typeof questions.$inferInsert;
@@ -265,7 +285,12 @@ export const practiceSessions = mysqlTable("practice_sessions", {
   selectedOption: varchar("selectedOption", { length: 4 }),
   isCorrect: boolean("isCorrect").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => [
+  // Suporta EXISTS subquery de "Minhas Questões" e queries de progresso
+  index("idx_ps_user_question").on(t.userId, t.questionId),
+  index("idx_ps_user_correct").on(t.userId, t.isCorrect),
+  index("idx_ps_user_discipline").on(t.userId, t.disciplineId),
+]);
 
 export type PracticeSession = typeof practiceSessions.$inferSelect;
 
