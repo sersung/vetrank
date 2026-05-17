@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY ?? 're_placeholder');
 const FROM = process.env.EMAIL_FROM || 'VetRank <noreply@vetrank.com.br>';
 const SUPPORT = 'calefi@csvet.com.br';
 const SITE_URL = 'https://www.vetrank.com.br';
