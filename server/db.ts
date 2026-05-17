@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, like, lte, ne, not, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2";
 import {
   Badge,
   Discipline,
@@ -45,7 +46,21 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Strip any existing charset param, then add our own
+      const baseUrl = process.env.DATABASE_URL.replace(/\?.*$/, "");
+      const url = new URL(baseUrl);
+      const pool = mysql.createPool({
+        host: url.hostname,
+        port: url.port ? Number(url.port) : 3306,
+        user: decodeURIComponent(url.username),
+        password: decodeURIComponent(url.password),
+        database: url.pathname.replace(/^\//, ""),
+        charset: "utf8mb4",
+        waitForConnections: true,
+        connectionLimit: 10,
+      });
+
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

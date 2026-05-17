@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(Get-Content \"d:\\\\vetrank\\\\drizzle\\\\*.sql\")",
-      "Bash(Select-String \"INDEX|KEY\")"
+      "Bash(Select-String \"INDEX|KEY\")",
+      "Bash(docker exec *)",
+      "Bash(curl -s \"http://localhost:3000/api/trpc/questions.list?input=%7B%22json%22%3A%7B%22page%22%3A1%2C%22limit%22%3A10%7D%7D\" -o /tmp/qlist.json)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s \"http://localhost:3000/api/trpc/questions.disciplines\")",
+      "Bash(curl -s \"http://localhost:3000/api/trpc/questions.distinctBancas\")"
     ]
   }
 }
