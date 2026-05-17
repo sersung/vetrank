@@ -203,6 +203,10 @@ export const questions = mysqlTable("questions", {
   modelId: varchar("modelId", { length: 4 }),  // "M1"|"M2"|...|"M10"|null (legado)
   grupoId: varchar("grupoId", { length: 64 }),  // M10: ID do bloco de alternativas constantes
   posicaoBloco: int("posicaoBloco"),            // M10: posição dentro do bloco (1, 2, 3…)
+  // Revision flow: quando professor rejeita, o autor pode revisar e reenviar
+  revisionNotes: text("revisionNotes"),        // o que foi alterado na revisão
+  revisedAt: timestamp("revisedAt"),           // data da última revisão
+  revisionCount: int("revisionCount").default(0).notNull(), // nº de revisões
   // Status flags
   isAnulada: boolean("isAnulada").default(false).notNull(),
   isDesatualizada: boolean("isDesatualizada").default(false).notNull(),
@@ -515,15 +519,30 @@ export type ReferralBonus = typeof referralBonuses.$inferSelect;
 // ─── Question Assignments (coordinator assigns questions to professors for validation) ─
 export const questionAssignments = mysqlTable("question_assignments", {
   id: int("id").autoincrement().primaryKey(),
-  assignedBy: int("assignedBy").notNull(),   // coordinator/superuser id
-  assignedTo: int("assignedTo").notNull(),   // teacher/professor id
+  assignedBy: int("assignedBy").notNull(),
+  assignedTo: int("assignedTo").notNull(),
   questionId: int("questionId").notNull(),
   questionType: mysqlEnum("questionType", ["multiple_choice", "discursive"]).default("multiple_choice").notNull(),
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
-  notes: text("notes"),                      // professor feedback notes
+  notes: text("notes"),
+  // Structured rejection: obrigatório quando status = "rejected"
+  rejectionReason: mysqlEnum("rejectionReason", [
+    "erro_conteudo",      // Erro técnico no conteúdo
+    "gabarito_incorreto", // Gabarito incorreto
+    "alternativas",       // Alternativas mal elaboradas
+    "enunciado_ambiguo",  // Enunciado ambíguo ou confuso
+    "nivel_inadequado",   // Nível de dificuldade inadequado
+    "fora_escopo",        // Fora do escopo da disciplina
+    "duplicata",          // Questão duplicada no banco
+    "linguagem",          // Linguagem ou formato inadequado
+    "outros",             // Outros motivos
+  ]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => [
+  index("idx_assign_status").on(t.status, t.assignedTo),
+  index("idx_assign_question").on(t.questionId),
+]);
 
 export type QuestionAssignment = typeof questionAssignments.$inferSelect;
 export type InsertQuestionAssignment = typeof questionAssignments.$inferInsert;

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { QuestionAssignmentPanel } from "@/components/QuestionAssignmentPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -21,7 +22,7 @@ import { Link } from "wouter";
 import {
   Users, Shield, Activity, BarChart2, BookOpen, CheckSquare,
   UserPlus, UserMinus, Clock, Loader2, Eye, SlidersHorizontal,
-  ChevronLeft, ChevronRight, Search, CheckCircle, XCircle, Send,
+  ChevronLeft, ChevronRight, Search, CheckCircle, XCircle, Send, ClipboardList,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -527,6 +528,9 @@ export default function CoordinatorPanel() {
             <TabsTrigger value="users" className="gap-1.5 text-sm">
               <UserPlus className="h-3.5 w-3.5" /> Usuários
             </TabsTrigger>
+            <TabsTrigger value="assignments" className="gap-1.5 text-sm">
+              <Send className="h-3.5 w-3.5" /> Atribuições
+            </TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5 text-sm">
               <Activity className="h-3.5 w-3.5" /> Atividades
             </TabsTrigger>
@@ -639,6 +643,17 @@ export default function CoordinatorPanel() {
               onPromote={id => promoteMutation.mutate({ userId: id })}
               isPromoting={promoteMutation.isPending}
             />
+          </TabsContent>
+
+          {/* Atribuições */}
+          <TabsContent value="assignments">
+            <div className="mb-4">
+              <h2 className="font-serif text-xl font-bold mb-1">Gerenciar Atribuições de Validação</h2>
+              <p className="text-sm text-muted-foreground">
+                Atribua questões pendentes a professores, acompanhe o progresso e veja o histórico de aprovações e recusas.
+              </p>
+            </div>
+            <QuestionAssignmentPanel />
           </TabsContent>
 
           {/* Atividades */}

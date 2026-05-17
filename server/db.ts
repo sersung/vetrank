@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, like, lte, not, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, like, lte, ne, not, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   Badge,
@@ -343,6 +343,8 @@ export type QuestionFilters = {
   // Pagination
   page?: number;
   limit?: number;
+  // Admin/teacher context: if true, don't auto-filter rejected questions
+  includeRejected?: boolean;
 };
 
 export async function getQuestions(filters: QuestionFilters): Promise<{ questions: Question[]; total: number }> {
@@ -350,6 +352,11 @@ export async function getQuestions(filters: QuestionFilters): Promise<{ question
   if (!db) return { questions: [], total: 0 };
 
   const conditions = [eq(questions.active, true)];
+
+  // Rejected questions are never shown to end users unless admin/teacher explicitly requests
+  if (!filters.includeRejected && !filters.status) {
+    conditions.push(ne(questions.status, "rejected"));
+  }
 
   // By default exclude anuladas/desatualizadas unless explicitly included
   if (!filters.includeAnuladas) conditions.push(eq(questions.isAnulada, false));

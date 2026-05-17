@@ -308,12 +308,27 @@ export const validationRouter = router({
       assignmentId: z.number(),
       status: z.enum(["approved", "rejected"]),
       notes: z.string().optional(),
+      // Obrigatório quando status = "rejected"
+      rejectionReason: z.enum([
+        "erro_conteudo", "gabarito_incorreto", "alternativas",
+        "enunciado_ambiguo", "nivel_inadequado", "fora_escopo",
+        "duplicata", "linguagem", "outros",
+      ]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["teacher", "coordinator", "superuser", "admin"]);
       const db = await requireDb();
 
-      // Verify ownership
+      // Rejeição exige motivo e justificativa
+      if (input.status === "rejected") {
+        if (!input.rejectionReason) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Informe o motivo da recusa." });
+        }
+        if (!input.notes || input.notes.trim().length < 20) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A justificativa deve ter no mínimo 20 caracteres." });
+        }
+      }
+
       const [assignment] = await db.select()
         .from(questionAssignments)
         .where(and(
@@ -326,10 +341,13 @@ export const validationRouter = router({
       }
 
       await db.update(questionAssignments)
-        .set({ status: input.status, notes: input.notes })
+        .set({
+          status: input.status,
+          notes: input.notes,
+          rejectionReason: input.rejectionReason,
+        })
         .where(eq(questionAssignments.id, input.assignmentId));
 
-      // Also update the question's isValidated flag
       const isValidated = input.status === "approved";
       const now = new Date();
 
@@ -353,6 +371,164 @@ export const validationRouter = router({
       }
 
       return { success: true };
+    }),
+
+  // ── List rejected questions created by this teacher ────────────────────────
+  listMyRejectedQuestions: protectedProcedure
+    .query(async ({ ctx }) => {
+      requireRole(ctx.user.role, ["teacher", "coordinator", "superuser", "admin"]);
+      const db = await requireDb();
+
+      // Find rejected questions created by this user
+      const rejected = await db.select({
+        id: questions.id,
+        textPt: questions.textPt,
+        difficulty: questions.difficulty,
+        questionType: questions.questionType,
+        modelId: (questions as any).modelId,
+        banca: (questions as any).banca,
+        year: questions.year,
+        disciplineId: questions.disciplineId,
+        revisionCount: (questions as any).revisionCount,
+        revisedAt: (questions as any).revisedAt,
+        updatedAt: questions.updatedAt,
+      })
+        .from(questions)
+        .where(and(
+          eq(questions.createdBy, ctx.user.id),
+          eq(questions.status, "rejected"),
+          eq(questions.active, true),
+        ))
+        .orderBy(desc(questions.updatedAt));
+
+      // Get latest rejection reason for each question
+      if (rejected.length === 0) return [];
+      const qIds = rejected.map(q => q.id);
+      const latestAssignments = await db.select({
+        questionId: questionAssignments.questionId,
+        rejectionReason: questionAssignments.rejectionReason,
+        notes: questionAssignments.notes,
+        assignedTo: questionAssignments.assignedTo,
+        updatedAt: questionAssignments.updatedAt,
+      })
+        .from(questionAssignments)
+        .where(and(
+          inArray(questionAssignments.questionId, qIds),
+          eq(questionAssignments.status, "rejected"),
+        ))
+        .orderBy(desc(questionAssignments.updatedAt));
+
+      // Latest rejection per question
+      const latestMap: Record<number, typeof latestAssignments[0]> = {};
+      for (const a of latestAssignments) {
+        if (!latestMap[a.questionId]) latestMap[a.questionId] = a;
+      }
+
+      return rejected.map(q => ({
+        ...q,
+        rejection: latestMap[q.id] ?? null,
+      }));
+    }),
+
+  // ── Submit revision: teacher revises a rejected question and resubmits ──────
+  submitRevision: protectedProcedure
+    .input(z.object({
+      questionId: z.number(),
+      // Fields that can be updated in revision
+      textPt: z.string().min(10),
+      textEn: z.string().optional(),
+      options: z.array(z.object({ id: z.string(), textPt: z.string(), textEn: z.string().optional() })),
+      correctOption: z.string(),
+      explanationPt: z.string().optional(),
+      explanationEn: z.string().optional(),
+      assertion1: z.string().optional(),
+      assertion2: z.string().optional(),
+      a1Verdadeira: z.boolean().optional(),
+      a2Verdadeira: z.boolean().optional(),
+      relacaoCausal: z.boolean().optional(),
+      formatData: z.any().optional(),
+      imageUrl: z.string().optional(),
+      // What changed
+      revisionNotes: z.string().min(10, "Descreva o que foi alterado na revisão (mínimo 10 caracteres)."),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["teacher", "coordinator", "superuser", "admin"]);
+      const db = await requireDb();
+
+      // Verify ownership and status
+      const [q] = await db.select({ id: questions.id, createdBy: questions.createdBy, status: questions.status })
+        .from(questions)
+        .where(eq(questions.id, input.questionId));
+
+      if (!q) throw new TRPCError({ code: "NOT_FOUND" });
+      if (q.createdBy !== ctx.user.id && !["coordinator","superuser","admin"].includes(ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode revisar questão de outro professor." });
+      }
+      if (q.status !== "rejected") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Apenas questões rejeitadas podem ser revisadas." });
+      }
+
+      const { questionId, revisionNotes, ...fields } = input;
+      const now = new Date();
+
+      await db.update(questions)
+        .set({
+          ...fields,
+          status: "pending",
+          isValidated: false,
+          validatedBy: null,
+          validatedAt: null,
+          revisionNotes,
+          revisedAt: now,
+          // increment revisionCount
+          revisionCount: sql`revision_count + 1`,
+        } as any)
+        .where(eq(questions.id, questionId));
+
+      return { success: true };
+    }),
+
+  // ── List pending-assignment questions (questions without any assignment) ─────
+  listPendingAssignment: protectedProcedure
+    .input(z.object({
+      disciplineId: z.number().optional(),
+      modelId: z.string().optional(),
+      page: z.number().default(1),
+      pageSize: z.number().default(20),
+    }))
+    .query(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["coordinator", "superuser", "admin"]);
+      const db = await requireDb();
+      const offset = (input.page - 1) * input.pageSize;
+
+      // Questions in "pending" status (created by teachers, not yet assigned or re-submitted)
+      const conditions = [
+        eq(questions.active, true),
+        eq(questions.status, "pending"),
+      ];
+      if (input.disciplineId) conditions.push(eq(questions.disciplineId, input.disciplineId));
+
+      const rows = await db.select({
+        id: questions.id,
+        textPt: questions.textPt,
+        difficulty: questions.difficulty,
+        questionType: questions.questionType,
+        disciplineId: questions.disciplineId,
+        year: questions.year,
+        banca: (questions as any).banca,
+        modelId: (questions as any).modelId,
+        revisionCount: (questions as any).revisionCount,
+        createdBy: questions.createdBy,
+        createdAt: questions.createdAt,
+      })
+        .from(questions)
+        .where(and(...conditions))
+        .orderBy(desc(questions.createdAt))
+        .limit(input.pageSize)
+        .offset(offset);
+
+      const [{ total }] = await db.select({ total: count() }).from(questions).where(and(...conditions));
+      return { rows, total: Number(total) };
     }),
 
   // ── List all assignments (coordinator monitoring) ──────────────────────────

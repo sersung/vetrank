@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { RejectionDialog, RevisionCard, RevisionForm } from "@/components/ValidationComponents";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -37,7 +38,7 @@ import { Link } from "wouter";
 import {
   BookOpen, CheckCircle, XCircle, FileText, Upload, ClipboardList,
   Loader2, Sparkles, Plus, Eye, SlidersHorizontal, ChevronDown,
-  ChevronRight, Image, AlertCircle,
+  ChevronRight, Image, AlertCircle, RefreshCw,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -72,12 +73,13 @@ const defaultOptions = [
 
 function AssignmentCard({ a, onDecision, isPending }: {
   a: any;
-  onDecision: (id: number, status: "approved" | "rejected", notes: string) => void;
+  onDecision: (id: number, status: "approved" | "rejected", notes: string, reason?: string) => void;
   isPending: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [rejectionOpen, setRejectionOpen] = useState(false);
+  const [approveNotes, setApproveNotes] = useState("");
   const q = a.question;
 
   return (
@@ -166,9 +168,9 @@ function AssignmentCard({ a, onDecision, isPending }: {
           )}
 
           <Textarea
-            placeholder="Observações para o professor (opcional)..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
+            placeholder="Observações de aprovação (opcional)..."
+            value={approveNotes}
+            onChange={e => setApproveNotes(e.target.value)}
             rows={2}
             className="text-sm resize-none bg-background"
           />
@@ -176,7 +178,7 @@ function AssignmentCard({ a, onDecision, isPending }: {
           <div className="flex gap-2">
             <Button
               size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-              onClick={() => onDecision(a.id, "approved", notes)}
+              onClick={() => onDecision(a.id, "approved", approveNotes)}
               disabled={isPending}
             >
               <CheckCircle className="h-3.5 w-3.5" /> Aprovar
@@ -184,12 +186,20 @@ function AssignmentCard({ a, onDecision, isPending }: {
             <Button
               size="sm" variant="outline"
               className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10 gap-1"
-              onClick={() => onDecision(a.id, "rejected", notes)}
+              onClick={() => setRejectionOpen(true)}
               disabled={isPending}
             >
-              <XCircle className="h-3.5 w-3.5" /> Rejeitar
+              <XCircle className="h-3.5 w-3.5" /> Recusar
             </Button>
           </div>
+
+          <RejectionDialog
+            open={rejectionOpen}
+            onOpenChange={setRejectionOpen}
+            onConfirm={(reason, notes) => { onDecision(a.id, "rejected", notes, reason); setRejectionOpen(false); }}
+            isPending={isPending}
+            questionPreview={q?.textPt}
+          />
         </div>
       )}
 
@@ -242,12 +252,17 @@ function MyAssignments() {
   const { data: permissions = [] } = trpc.teacher.myPermissions.useQuery();
 
   const updateMutation = trpc.validation.updateAssignment.useMutation({
-    onSuccess: () => { toast.success("Questão avaliada com sucesso"); refetch(); },
+    onSuccess: () => { toast.success("Avaliação registrada com sucesso."); refetch(); },
     onError: e => toast.error(e.message),
   });
 
-  const handleDecision = (id: number, status: "approved" | "rejected", notes: string) => {
-    updateMutation.mutate({ assignmentId: id, status, notes: notes || undefined });
+  const handleDecision = (id: number, status: "approved" | "rejected", notes: string, reason?: string) => {
+    updateMutation.mutate({
+      assignmentId: id,
+      status,
+      notes: notes || undefined,
+      rejectionReason: reason as any,
+    });
   };
 
   const rows = data?.rows ?? [];
@@ -722,6 +737,54 @@ function MyQuestions() {
   );
 }
 
+// ─── Revision Tab ────────────────────────────────────────────────────────────
+
+function RevisionTab() {
+  const [revising, setRevising] = useState<any>(null);
+  const { data: rejected = [], refetch, isLoading } = trpc.validation.listMyRejectedQuestions.useQuery();
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  }
+
+  if (revising) {
+    return (
+      <div>
+        <Button variant="ghost" size="sm" className="mb-4 gap-1" onClick={() => setRevising(null)}>
+          ← Voltar à lista
+        </Button>
+        <h3 className="text-base font-semibold mb-4">Revisar Questão #{revising.id}</h3>
+        <RevisionForm
+          question={revising}
+          onClose={() => setRevising(null)}
+          onSuccess={() => { setRevising(null); refetch(); }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {rejected.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30 text-emerald-400" />
+          <p className="text-sm">Nenhuma questão rejeitada.</p>
+          <p className="text-xs mt-1">Suas questões estão todas aprovadas ou pendentes de validação.</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {rejected.length} questão(ões) rejeitada(s) aguardando revisão. Clique em uma questão para ver o feedback e revisar.
+          </p>
+          {rejected.map((q: any) => (
+            <RevisionCard key={q.id} question={q} onRevise={setRevising} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Import Tab ───────────────────────────────────────────────────────────────
 
 function TeacherImportTab() {
@@ -811,6 +874,9 @@ export default function TeacherPanel() {
             <TabsTrigger value="my" className="gap-1.5 text-sm">
               <FileText className="h-3.5 w-3.5" /> Minhas Questões
             </TabsTrigger>
+            <TabsTrigger value="revision" className="gap-1.5 text-sm">
+              <RefreshCw className="h-3.5 w-3.5" /> Revisões
+            </TabsTrigger>
             <TabsTrigger value="import" className="gap-1.5 text-sm">
               <Upload className="h-3.5 w-3.5" /> Importar
             </TabsTrigger>
@@ -842,6 +908,16 @@ export default function TeacherPanel() {
               <p className="text-sm text-muted-foreground">Questões que você criou e seu status de validação.</p>
             </div>
             <MyQuestions />
+          </TabsContent>
+
+          <TabsContent value="revision">
+            <div className="mb-4">
+              <h2 className="font-serif text-xl font-bold mb-1">Revisão de Questões Recusadas</h2>
+              <p className="text-sm text-muted-foreground">
+                Questões recusadas pelo validador. Leia o feedback, corrija os problemas e reenvie.
+              </p>
+            </div>
+            <RevisionTab />
           </TabsContent>
 
           <TabsContent value="import">
