@@ -30,6 +30,13 @@ import {
   getSavedFilters,
   saveFilter,
   deleteSavedFilter,
+  getAssertivas,
+  upsertAssertivas,
+  getMatchingData,
+  upsertMatchingData,
+  getQuestionGroup,
+  upsertQuestionGroup,
+  updateGroupQuestionCount,
   getDb,
 } from "../db";
 import { questions, users, exams } from "../../drizzle/schema";
@@ -302,6 +309,79 @@ export const questionsRouter = router({
         imported++;
       }
       return { imported };
+    }),
+
+  // ── M3: Assertivas ────────────────────────────────────────────────────────────
+
+  getAssertivas: publicProcedure
+    .input(z.object({ questionId: z.number() }))
+    .query(({ input }) => getAssertivas(input.questionId)),
+
+  upsertAssertivas: protectedProcedure
+    .input(z.object({
+      questionId: z.number(),
+      assertivas: z.array(z.object({
+        label:   z.string().max(4),
+        textPt:  z.string().min(1),
+        textEn:  z.string().optional(),
+        correta: z.boolean(),
+      })),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      await upsertAssertivas(input.questionId, input.assertivas);
+      return { success: true };
+    }),
+
+  // ── M8: Associação / Colunas ──────────────────────────────────────────────
+
+  getMatchingData: publicProcedure
+    .input(z.object({ questionId: z.number() }))
+    .query(({ input }) => getMatchingData(input.questionId)),
+
+  upsertMatchingData: protectedProcedure
+    .input(z.object({
+      questionId: z.number(),
+      esquerda: z.array(z.object({ label: z.string(), textPt: z.string(), textEn: z.string().optional() })),
+      direita:  z.array(z.object({ label: z.string(), textPt: z.string(), textEn: z.string().optional() })),
+      pairs: z.array(z.object({ esquerdaOrdem: z.number(), direitaOrdem: z.number() })),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      await upsertMatchingData(input.questionId, input.esquerda, input.direita, input.pairs);
+      return { success: true };
+    }),
+
+  // ── M10: Grupos de Alternativas Constantes ────────────────────────────────
+
+  getQuestionGroup: publicProcedure
+    .input(z.object({ grupoId: z.string() }))
+    .query(({ input }) => getQuestionGroup(input.grupoId)),
+
+  upsertQuestionGroup: protectedProcedure
+    .input(z.object({
+      grupoId:     z.string().min(1).max(64),
+      titulo:      z.string().optional(),
+      textBasePt:  z.string().min(1),
+      textBaseEn:  z.string().optional(),
+      alternativas: z.record(z.string(), z.string()), // {A:"...", B:"...", ...}
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      await upsertQuestionGroup(input.grupoId, input);
+      return { success: true };
+    }),
+
+  updateGroupCount: protectedProcedure
+    .input(z.object({ grupoId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!["admin", "teacher", "coordinator", "superuser"].includes(ctx.user.role))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      await updateGroupQuestionCount(input.grupoId);
+      return { success: true };
     }),
 
   // Upload and optimize a question image → 3 responsive WebP variants (sm/md/lg)

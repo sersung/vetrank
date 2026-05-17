@@ -21,6 +21,16 @@ import {
   monthlyXp,
   practiceSessions,
   questions,
+  InsertQuestionAssertiva,
+  InsertQuestionGroup,
+  QuestionAssertiva,
+  QuestionGroup,
+  QuestionMatchingCol,
+  QuestionMatchingPair,
+  questionAssertivas,
+  questionGroups,
+  questionMatchingCols,
+  questionMatchingPairs,
   savedFilters,
   subjects,
   userBadges,
@@ -490,6 +500,137 @@ export async function getQuestionById(id: number): Promise<Question | undefined>
   if (!db) return undefined;
   const result = await db.select().from(questions).where(eq(questions.id, id)).limit(1);
   return result[0];
+}
+
+// ─── M3: Assertivas ───────────────────────────────────────────────────────────
+
+export async function getAssertivas(questionId: number): Promise<QuestionAssertiva[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(questionAssertivas)
+    .where(eq(questionAssertivas.questionId, questionId))
+    .orderBy(asc(questionAssertivas.ordem));
+}
+
+export async function upsertAssertivas(
+  questionId: number,
+  items: Array<{ label: string; textPt: string; textEn?: string; correta: boolean }>
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  // Delete existing and re-insert (simpler than diffing)
+  await db.delete(questionAssertivas).where(eq(questionAssertivas.questionId, questionId));
+  if (items.length === 0) return;
+  await db.insert(questionAssertivas).values(
+    items.map((item, i) => ({
+      questionId,
+      ordem: i + 1,
+      label: item.label,
+      textPt: item.textPt,
+      textEn: item.textEn ?? null,
+      correta: item.correta,
+    }))
+  );
+}
+
+// ─── M8: Colunas de Associação ────────────────────────────────────────────────
+
+export type MatchingData = {
+  esquerda: QuestionMatchingCol[];
+  direita: QuestionMatchingCol[];
+  pairs: QuestionMatchingPair[];
+};
+
+export async function getMatchingData(questionId: number): Promise<MatchingData> {
+  const db = await getDb();
+  if (!db) return { esquerda: [], direita: [], pairs: [] };
+  const [cols, pairs] = await Promise.all([
+    db.select().from(questionMatchingCols)
+      .where(eq(questionMatchingCols.questionId, questionId))
+      .orderBy(asc(questionMatchingCols.coluna), asc(questionMatchingCols.ordem)),
+    db.select().from(questionMatchingPairs)
+      .where(eq(questionMatchingPairs.questionId, questionId)),
+  ]);
+  return {
+    esquerda: cols.filter(c => c.coluna === "esquerda"),
+    direita:  cols.filter(c => c.coluna === "direita"),
+    pairs,
+  };
+}
+
+export async function upsertMatchingData(
+  questionId: number,
+  esquerda: Array<{ label: string; textPt: string; textEn?: string }>,
+  direita:  Array<{ label: string; textPt: string; textEn?: string }>,
+  pairs: Array<{ esquerdaOrdem: number; direitaOrdem: number }>
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(questionMatchingPairs).where(eq(questionMatchingPairs.questionId, questionId));
+  await db.delete(questionMatchingCols).where(eq(questionMatchingCols.questionId, questionId));
+
+  if (!esquerda.length || !direita.length) return;
+
+  // Insert cols and get their IDs
+  const esquerdaRows = esquerda.map((item, i) => ({
+    questionId, coluna: "esquerda" as const, ordem: i + 1, label: item.label,
+    textPt: item.textPt, textEn: item.textEn ?? null,
+  }));
+  const direitaRows = direita.map((item, i) => ({
+    questionId, coluna: "direita" as const, ordem: i + 1, label: item.label,
+    textPt: item.textPt, textEn: item.textEn ?? null,
+  }));
+
+  await db.insert(questionMatchingCols).values([...esquerdaRows, ...direitaRows]);
+
+  // Reload to get IDs
+  const allCols = await db.select().from(questionMatchingCols)
+    .where(eq(questionMatchingCols.questionId, questionId));
+  const esquerdaCols = allCols.filter(c => c.coluna === "esquerda");
+  const direitaCols  = allCols.filter(c => c.coluna === "direita");
+
+  const pairRows = pairs.map(p => ({
+    questionId,
+    esquerdaId: esquerdaCols.find(c => c.ordem === p.esquerdaOrdem)?.id ?? 0,
+    direitaId:  direitaCols.find(c => c.ordem === p.direitaOrdem)?.id ?? 0,
+  })).filter(p => p.esquerdaId && p.direitaId);
+
+  if (pairRows.length) {
+    await db.insert(questionMatchingPairs).values(pairRows);
+  }
+}
+
+// ─── M10: Grupos de Alternativas Constantes ───────────────────────────────────
+
+export async function getQuestionGroup(grupoId: string): Promise<QuestionGroup | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(questionGroups)
+    .where(eq(questionGroups.grupoId, grupoId)).limit(1);
+  return result[0];
+}
+
+export async function upsertQuestionGroup(
+  grupoId: string,
+  data: { titulo?: string; textBasePt: string; textBaseEn?: string; alternativas: Record<string, string> }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(questionGroups)
+    .values({ grupoId, ...data })
+    .onDuplicateKeyUpdate({ set: { titulo: data.titulo, textBasePt: data.textBasePt, textBaseEn: data.textBaseEn ?? null, alternativas: data.alternativas } });
+}
+
+export async function updateGroupQuestionCount(grupoId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const [row] = await db.select({ count: sql<number>`count(*)` })
+    .from(questions).where(eq(questions.grupoId, grupoId));
+  if (row) {
+    await db.update(questionGroups)
+      .set({ totalQuestoes: Number(row.count) })
+      .where(eq(questionGroups.grupoId, grupoId));
+  }
 }
 
 export async function getRandomQuestions(filters: {

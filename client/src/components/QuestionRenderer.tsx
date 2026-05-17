@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { ASSERTION_REASON_OPTIONS, type QuestionType } from "@/components/QuestionFormats";
 import { cn } from "@/lib/utils";
 import { MODEL_MAP } from "@shared/questionModels";
+import { trpc } from "@/lib/trpc";
+import { descricaoGabaritoM5 } from "@/components/QuestionModelForms";
 
 // ─── Responsive image helper ──────────────────────────────────────────────────
 
@@ -49,13 +51,20 @@ export interface QuestionData {
   textPt: string;
   textEn?: string;
   questionType?: QuestionType | string;
-  modelId?: string;           // M1–M10
+  modelId?: string;
   options: QuestionOption[];
   correctOption: string;
   explanationPt?: string;
   explanationEn?: string;
   assertion1?: string;
   assertion2?: string;
+  // M5 booleanos
+  a1Verdadeira?: boolean | null;
+  a2Verdadeira?: boolean | null;
+  relacaoCausal?: boolean | null;
+  // M10
+  grupoId?: string | null;
+  posicaoBloco?: number | null;
   formatData?: any;
   imageUrl?: string;
   difficulty?: string;
@@ -80,6 +89,231 @@ interface QuestionRendererProps {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+
+// ─── M3: Assertivas sub-renderer ─────────────────────────────────────────────
+
+function AssertiveRenderer({ questionId, fd, answered, lang }: {
+  questionId: number; fd: any; answered: boolean; lang: string;
+}) {
+  const { data: assertivas = [] } = trpc.questions.getAssertivas.useQuery(
+    { questionId },
+    { staleTime: 60_000 }
+  );
+
+  // Fallback: use formatData.items if no relational data
+  const items: Array<{ id: string; label: string; textPt: string; correta?: boolean }> =
+    assertivas.length > 0
+      ? assertivas.map(a => ({ id: a.label, label: a.label, textPt: a.textPt, correta: a.correta }))
+      : (fd.items ?? []).map((i: any) => ({ id: i.id, label: i.id, textPt: i.textPt, correta: undefined }));
+
+  if (!items.length) return null;
+
+  return (
+    <div className="space-y-2 p-3 rounded-xl border border-border/40 bg-accent/10">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+        {lang === "pt" ? "Analise as afirmativas:" : "Analyze the statements:"}
+      </p>
+      {items.map((item) => {
+        const showVF = answered && item.correta !== undefined;
+        return (
+          <div key={item.id} className={cn(
+            "flex gap-3 rounded-lg p-2.5 border transition-colors",
+            showVF
+              ? item.correta
+                ? "border-emerald-500/40 bg-emerald-500/8"
+                : "border-red-500/40 bg-red-500/8"
+              : "border-border/30 bg-background/50"
+          )}>
+            <span className="text-xs font-black text-primary mt-0.5 w-6 shrink-0">{item.label}.</span>
+            <span className="text-sm flex-1">{lang === "pt" ? item.textPt : item.textPt}</span>
+            {showVF && (
+              <span className={cn(
+                "text-xs font-black shrink-0 mt-0.5 px-1.5 py-0.5 rounded",
+                item.correta
+                  ? "text-emerald-400 bg-emerald-500/20"
+                  : "text-red-400 bg-red-500/20"
+              )}>
+                {item.correta ? "✓ V" : "✗ F"}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── M5: Asserção–Razão sub-renderer ─────────────────────────────────────────
+
+function AssertionReasonRenderer({ question, answered, lang }: {
+  question: QuestionData; answered: boolean; lang: string;
+}) {
+  const hasVF = question.a1Verdadeira != null && question.a2Verdadeira != null;
+  const a1V = question.a1Verdadeira ?? true;
+  const a2V = question.a2Verdadeira ?? true;
+
+  const PropBox = ({ label, text, verdadeira }: { label: string; text?: string; verdadeira: boolean }) => (
+    <div className={cn(
+      "rounded-xl border p-4 space-y-2 transition-colors",
+      answered && hasVF
+        ? verdadeira ? "border-emerald-500/40 bg-emerald-500/8" : "border-red-500/40 bg-red-500/8"
+        : "border-primary/20 bg-primary/5"
+    )}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-black text-primary uppercase tracking-wide">{label}</span>
+        {answered && hasVF && (
+          <span className={cn(
+            "text-xs font-black px-2 py-0.5 rounded",
+            verdadeira ? "text-emerald-400 bg-emerald-500/20" : "text-red-400 bg-red-500/20"
+          )}>
+            {verdadeira ? "✓ VERDADEIRA" : "✗ FALSA"}
+          </span>
+        )}
+      </div>
+      {text && <p className="text-sm">{text}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      <PropBox
+        label={lang === "pt" ? "Afirmativa I" : "Statement I"}
+        text={question.assertion1}
+        verdadeira={a1V}
+      />
+      <div className="flex items-center gap-3 py-1">
+        <div className="flex-1 h-px bg-border/40" />
+        <span className="text-xs font-black text-amber-400 tracking-widest px-3 py-1 rounded border border-amber-500/30 bg-amber-500/10">
+          {lang === "pt" ? "PORQUE" : "BECAUSE"}
+        </span>
+        <div className="flex-1 h-px bg-border/40" />
+      </div>
+      <PropBox
+        label={lang === "pt" ? "Afirmativa II (Razão)" : "Statement II (Reason)"}
+        text={question.assertion2}
+        verdadeira={a2V}
+      />
+      {answered && hasVF && question.relacaoCausal != null && a1V && a2V && (
+        <div className={cn(
+          "text-xs text-center py-2 px-3 rounded-lg border",
+          question.relacaoCausal
+            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+            : "border-red-500/30 text-red-400 bg-red-500/10"
+        )}>
+          {question.relacaoCausal
+            ? (lang === "pt" ? "✓ A Afirmativa II é justificativa correta da I" : "✓ Statement II correctly justifies Statement I")
+            : (lang === "pt" ? "✗ A Afirmativa II NÃO é justificativa correta da I" : "✗ Statement II does NOT correctly justify Statement I")
+          }
+        </div>
+      )}
+      {answered && (
+        <p className="text-xs text-muted-foreground text-center py-1">
+          {descricaoGabaritoM5(question.correctOption)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── M8: Matching sub-renderer ────────────────────────────────────────────────
+
+function MatchingRenderer({ questionId, fd, answered, correctOption, opts, lang }: {
+  questionId: number; fd: any; answered: boolean;
+  correctOption: string; opts: QuestionOption[]; lang: string;
+}) {
+  const { data: matchingData } = trpc.questions.getMatchingData.useQuery(
+    { questionId },
+    { staleTime: 60_000 }
+  );
+
+  const hasRelational = matchingData && matchingData.esquerda.length > 0;
+
+  if (hasRelational) {
+    const { esquerda, direita, pairs } = matchingData;
+    const correctPairMap = new Map(pairs.map(p => [p.esquerdaId, p.direitaId]));
+
+    // Figure out which alt was selected/correct to color the pairs
+    const correctAltText = opts.find(o => o.id === correctOption)?.textPt ?? "";
+
+    return (
+      <div className="rounded-xl border border-border/40 bg-accent/10 p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase">
+            {lang === "pt" ? "Coluna I" : "Column I"}
+          </p>
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase">
+            {lang === "pt" ? "Coluna II" : "Column II"}
+          </p>
+          {esquerda.map((e) => {
+            const corrDirId = correctPairMap.get(e.id);
+            const corrDir = direita.find(d => d.id === corrDirId);
+            return (
+              <div key={e.id} className={cn(
+                "contents"
+              )}>
+                <div className={cn(
+                  "p-2 rounded-lg border text-sm",
+                  answered ? "border-emerald-500/30 bg-emerald-500/8" : "border-border/30 bg-background"
+                )}>
+                  <span className="text-xs font-bold text-primary mr-1.5">{e.label}.</span>
+                  {e.textPt}
+                </div>
+                <div className={cn(
+                  "p-2 rounded-lg border text-sm",
+                  answered && corrDir ? "border-emerald-500/30 bg-emerald-500/8" : "border-border/30 bg-background"
+                )}>
+                  {answered && corrDir ? (
+                    <>
+                      <span className="text-xs font-bold text-blue-400 mr-1.5">{corrDir.label})</span>
+                      {corrDir.textPt}
+                      <span className="text-emerald-400 ml-1 text-xs">✓</span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">
+                      {lang === "pt" ? "→ selecione a alternativa" : "→ select the alternative"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {answered && (
+          <p className="text-xs text-center text-muted-foreground">
+            {lang === "pt" ? "Correspondência correta:" : "Correct match:"} <strong>{correctAltText}</strong>
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback: formatData.pairs
+  if (!fd.pairs?.length) return null;
+  return (
+    <div className="p-3 rounded-xl border border-border/40 bg-accent/10">
+      <div className="grid grid-cols-2 gap-2">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+          {lang === "pt" ? "Coluna A" : "Column A"}
+        </p>
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+          {lang === "pt" ? "Coluna B" : "Column B"}
+        </p>
+        {fd.pairs.map((pair: any, i: number) => (
+          <>
+            <div key={`a-${i}`} className="text-sm p-2 bg-background rounded border border-border/30">
+              <span className="text-xs font-bold text-primary mr-2">{i + 1}.</span>{pair.colA}
+            </div>
+            <div key={`b-${i}`} className="text-sm p-2 bg-background rounded border border-border/30">
+              {pair.colB}
+            </div>
+          </>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function QuestionRenderer({
   question,
@@ -218,65 +452,19 @@ export default function QuestionRenderer({
         </div>
       )}
 
-      {/* ── Assertion-Reason: show propositions ── */}
+      {/* ── M5: Asserção–Razão com V/F revelado após resposta ── */}
       {qType === "assertion_reason" && (
-        <div className="space-y-2 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-          {question.assertion1 && (
-            <div>
-              <span className="text-xs font-sans font-bold text-primary uppercase mr-2">
-                {lang === "pt" ? "Afirmativa I:" : "Statement I:"}
-              </span>
-              <span className="text-sm font-sans">{question.assertion1}</span>
-            </div>
-          )}
-          <div className="text-center text-xs font-bold text-muted-foreground py-1">
-            {lang === "pt" ? "PORQUE" : "BECAUSE"}
-          </div>
-          {question.assertion2 && (
-            <div>
-              <span className="text-xs font-sans font-bold text-primary uppercase mr-2">
-                {lang === "pt" ? "Afirmativa II:" : "Statement II:"}
-              </span>
-              <span className="text-sm font-sans">{question.assertion2}</span>
-            </div>
-          )}
-        </div>
+        <AssertionReasonRenderer question={question} answered={answered || revealAnswer} lang={lang} />
       )}
 
-      {/* ── Complex Multiple Choice: show items I, II, III ── */}
-      {qType === "complex_multiple_choice" && fd.items?.length > 0 && (
-        <div className="space-y-2 p-3 bg-accent/20 border border-border/30 rounded-lg">
-          {fd.items.map((item: any) => (
-            <div key={item.id} className="flex gap-2">
-              <span className="text-xs font-bold text-primary w-8 shrink-0">{item.id}.</span>
-              <span className="text-sm font-sans">{lang === "pt" ? item.textPt : (item.textEn || item.textPt)}</span>
-            </div>
-          ))}
-        </div>
+      {/* ── M3: Complex Multiple Choice — assertivas com V/F revelado após resposta ── */}
+      {qType === "complex_multiple_choice" && (
+        <AssertiveRenderer questionId={question.id} fd={fd} answered={answered || revealAnswer} lang={lang} />
       )}
 
-      {/* ── Matching: show two-column table ── */}
-      {qType === "matching" && fd.pairs?.length > 0 && (
-        <div className="p-3 bg-accent/20 border border-border/30 rounded-lg">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="text-xs font-sans font-semibold text-muted-foreground uppercase mb-1">
-              {lang === "pt" ? "Coluna A" : "Column A"}
-            </div>
-            <div className="text-xs font-sans font-semibold text-muted-foreground uppercase mb-1">
-              {lang === "pt" ? "Coluna B" : "Column B"}
-            </div>
-            {fd.pairs.map((pair: any, i: number) => (
-              <>
-                <div key={`a-${i}`} className="text-sm font-sans p-2 bg-background rounded border border-border/30">
-                  <span className="text-xs font-bold text-primary mr-2">{i + 1}.</span>{pair.colA}
-                </div>
-                <div key={`b-${i}`} className="text-sm font-sans p-2 bg-background rounded border border-border/30">
-                  {pair.colB}
-                </div>
-              </>
-            ))}
-          </div>
-        </div>
+      {/* ── M8: Matching — colunas com pares revelados após resposta ── */}
+      {qType === "matching" && (
+        <MatchingRenderer questionId={question.id} fd={fd} answered={answered || revealAnswer} correctOption={question.correctOption} opts={opts} lang={lang} />
       )}
 
       {/* ── True/False: show statements ── */}

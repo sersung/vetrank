@@ -189,6 +189,11 @@ export const questions = mysqlTable("questions", {
   explanationEn: text("explanationEn"),
   assertion1: text("assertion1"),
   assertion2: text("assertion2"),
+  // M5 (Asserção–Razão): booleanos que determinam o gabarito automaticamente
+  // A=V/V+relação | B=V/V | C=V/F | D=F/V | E=F/F
+  a1Verdadeira: boolean("a1Verdadeira"),
+  a2Verdadeira: boolean("a2Verdadeira"),
+  relacaoCausal: boolean("relacaoCausal"),
   // Validation
   status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("approved").notNull(),
   isValidated: boolean("isValidated").default(false).notNull(),
@@ -553,3 +558,72 @@ export const savedFilters = mysqlTable("saved_filters", {
 
 export type SavedFilter = typeof savedFilters.$inferSelect;
 export type InsertSavedFilter = typeof savedFilters.$inferInsert;
+
+// ─── M3: Assertivas (Complex Multiple Choice) ────────────────────────────────
+// Armazena cada asserção (I, II, III, IV) com seu valor de verdade.
+// Permite revelar V/F individualmente ao aluno após a resposta.
+export const questionAssertivas = mysqlTable("question_assertivas", {
+  id: int("id").autoincrement().primaryKey(),
+  questionId: int("questionId").notNull(),
+  ordem: int("ordem").notNull(),              // 1, 2, 3, 4 (posição)
+  label: varchar("label", { length: 4 }).notNull(), // "I", "II", "III", "IV"
+  textPt: text("textPt").notNull(),
+  textEn: text("textEn"),
+  correta: boolean("correta").default(false).notNull(), // verdadeira ou falsa
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  index("idx_assertivas_question").on(t.questionId, t.ordem),
+]);
+
+export type QuestionAssertiva = typeof questionAssertivas.$inferSelect;
+export type InsertQuestionAssertiva = typeof questionAssertivas.$inferInsert;
+
+// ─── M8: Colunas de Associação (Matching) ────────────────────────────────────
+// Armazena itens de cada coluna + pares corretos separadamente.
+// Permite colorir pares corretos/incorretos no renderer do aluno.
+export const questionMatchingCols = mysqlTable("question_matching_cols", {
+  id: int("id").autoincrement().primaryKey(),
+  questionId: int("questionId").notNull(),
+  coluna: mysqlEnum("coluna", ["esquerda", "direita"]).notNull(),
+  ordem: int("ordem").notNull(),
+  label: varchar("label", { length: 8 }).notNull(), // "1","2","3" ou "a","b","c"
+  textPt: text("textPt").notNull(),
+  textEn: text("textEn"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => [
+  index("idx_matching_question_col").on(t.questionId, t.coluna),
+]);
+
+export type QuestionMatchingCol = typeof questionMatchingCols.$inferSelect;
+
+export const questionMatchingPairs = mysqlTable("question_matching_pairs", {
+  id: int("id").autoincrement().primaryKey(),
+  questionId: int("questionId").notNull(),
+  esquerdaId: int("esquerdaId").notNull(), // FK → question_matching_cols.id (coluna esquerda)
+  direitaId:  int("direitaId").notNull(),  // FK → question_matching_cols.id (coluna direita)
+}, (t) => [
+  index("idx_pairs_question").on(t.questionId),
+]);
+
+export type QuestionMatchingPair = typeof questionMatchingPairs.$inferSelect;
+
+// ─── M10: Grupos de Alternativas Constantes ───────────────────────────────────
+// Um grupo compartilha texto-base e 5 alternativas fixas entre várias questões.
+// Economiza digitação e garante consistência dentro do bloco.
+export const questionGroups = mysqlTable("question_groups", {
+  id: int("id").autoincrement().primaryKey(),
+  grupoId: varchar("grupoId", { length: 64 }).notNull().unique(),
+  titulo: varchar("titulo", { length: 256 }),
+  textBasePt: text("textBasePt").notNull(),
+  textBaseEn: text("textBaseEn"),
+  // Alternativas fixas para todo o bloco: { A:"...", B:"...", C:"...", D:"...", E:"..." }
+  alternativas: json("alternativas").notNull(),
+  totalQuestoes: int("totalQuestoes").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => [
+  index("idx_groups_grupo_id").on(t.grupoId),
+]);
+
+export type QuestionGroup = typeof questionGroups.$inferSelect;
+export type InsertQuestionGroup = typeof questionGroups.$inferInsert;
