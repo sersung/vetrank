@@ -73,6 +73,7 @@ import {
   type OrderingStep,
 } from "@/components/QuestionFormats";
 import { MODEL_OPTIONS, getDbTypeForModel } from "@shared/questionModels";
+import { QuestionImageUpload } from "@/components/QuestionImageUpload";
 
 export default function AdminPanel() {
   const t = useT();
@@ -320,6 +321,8 @@ export default function AdminPanel() {
     correctOption: "A", explanationPt: "", explanationEn: "",
     assertion1: "", assertion2: "",
     isAnulada: false, isDesatualizada: false,
+    imageUrl: "" as string,
+    hasImage: false as boolean,
     // format-specific
     options: defaultOptions as Array<{ id: string; textPt: string; textEn?: string }>,
     formatData: {} as FormatData,
@@ -453,6 +456,7 @@ export default function AdminPanel() {
     correctOption: "A", explanationPt: "", explanationEn: "",
     assertion1: "", assertion2: "",
     isAnulada: false, isDesatualizada: false,
+    imageUrl: "", hasImage: false,
     options: [
       { id: "A", textPt: "", textEn: "" },
       { id: "B", textPt: "", textEn: "" },
@@ -524,6 +528,7 @@ export default function AdminPanel() {
         escolaridade: (newQuestion.escolaridade || undefined) as any,
         isAnulada: newQuestion.isAnulada,
         isDesatualizada: newQuestion.isDesatualizada,
+        imageUrl: newQuestion.imageUrl || undefined,
         options,
         correctOption: qType === "discursive" ? "N/A" : newQuestion.correctOption,
         explanationPt: newQuestion.explanationPt || undefined,
@@ -1816,6 +1821,24 @@ export default function AdminPanel() {
             />
             <Input placeholder={language === "pt" ? "Ano (opcional)" : "Year (optional)"} value={newQuestion.year} onChange={(e) => setNewQuestion((p) => ({ ...p, year: e.target.value }))} className="font-sans bg-background" />
 
+            {/* Image toggle */}
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-sans">
+              <input
+                type="checkbox"
+                checked={newQuestion.hasImage}
+                onChange={(e) => setNewQuestion((p) => ({ ...p, hasImage: e.target.checked, imageUrl: e.target.checked ? p.imageUrl : "" }))}
+                className="h-4 w-4 accent-primary"
+              />
+              {language === "pt" ? "Esta questão possui imagem" : "This question has an image"}
+            </label>
+            {newQuestion.hasImage && (
+              <QuestionImageUpload
+                value={newQuestion.imageUrl || null}
+                onChange={(url) => setNewQuestion((p) => ({ ...p, imageUrl: url ?? "" }))}
+                questionType="mc"
+              />
+            )}
+
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => { setShowAddQuestion(false); resetNewQuestion(); }} className="flex-1 font-sans">{t("cancel")}</Button>
               <Button onClick={handleAddQuestion} disabled={createQuestion.isPending} className="flex-1 bg-primary text-primary-foreground font-sans">
@@ -1967,6 +1990,30 @@ export default function AdminPanel() {
                 />
                 <label htmlFor="edit-premium" className="text-sm font-sans">{language === "pt" ? "Questão Premium" : "Premium Question"}</label>
               </div>
+
+              {/* Image toggle + upload */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-sm font-sans">
+                  <input
+                    type="checkbox"
+                    checked={!!(editForm.imageUrl)}
+                    onChange={(e) => {
+                      if (!e.target.checked) setEditForm((p: any) => ({ ...p, imageUrl: "" }));
+                    }}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  {language === "pt" ? "Esta questão possui imagem" : "This question has an image"}
+                </label>
+                {editForm.imageUrl !== undefined && (
+                  <QuestionImageUpload
+                    value={editForm.imageUrl || null}
+                    onChange={(url) => setEditForm((p: any) => ({ ...p, imageUrl: url ?? "" }))}
+                    questionId={editQuestionId ?? undefined}
+                    questionType="mc"
+                  />
+                )}
+              </div>
+
               {/* Actions */}
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" onClick={() => { setEditQuestionId(null); setEditForm(null); }} className="flex-1 font-sans">{t("cancel")}</Button>

@@ -11,6 +11,31 @@ import { ASSERTION_REASON_OPTIONS, type QuestionType } from "@/components/Questi
 import { cn } from "@/lib/utils";
 import { MODEL_MAP } from "@shared/questionModels";
 
+// ─── Responsive image helper ──────────────────────────────────────────────────
+
+/**
+ * Renders a responsive <picture> element.
+ * New uploads store the _md.webp variant as primary URL.
+ * sm (480px) and lg (1440px) variants are inferred by suffix replacement.
+ * Legacy single-image URLs (no _md.webp suffix) are served as-is.
+ */
+function QuestionImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const isVariant = src.includes("_md.webp");
+  if (!isVariant) {
+    return <img src={src} alt={alt} className={className} loading="lazy" decoding="async" />;
+  }
+  const sm = src.replace("_md.webp", "_sm.webp");
+  const lg = src.replace("_md.webp", "_lg.webp");
+  return (
+    <picture>
+      <source media="(max-width: 480px)"  srcSet={sm} type="image/webp" />
+      <source media="(max-width: 960px)"  srcSet={src} type="image/webp" />
+      <source media="(min-width: 961px)"  srcSet={lg} type="image/webp" />
+      <img src={src} alt={alt} className={className} loading="lazy" decoding="async" />
+    </picture>
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface QuestionOption {
@@ -152,7 +177,7 @@ export default function QuestionRenderer({
           </p>
           <p className="text-sm font-sans text-foreground/90 whitespace-pre-wrap">{fd.caseText}</p>
           {fd.imageUrl && (
-            <img src={fd.imageUrl} alt="Caso clínico" className="mt-3 rounded-lg max-h-64 object-contain" />
+            <QuestionImage src={fd.imageUrl} alt="Caso clínico" className="mt-3 rounded-lg max-h-64 object-contain" />
           )}
         </div>
       )}
@@ -163,7 +188,7 @@ export default function QuestionRenderer({
           <p className="text-xs font-sans font-semibold text-blue-400 uppercase tracking-wide mb-2">
             {lang === "pt" ? "Analise a imagem abaixo:" : "Analyze the image below:"}
           </p>
-          <img src={fd.imageUrl} alt="Questão" className="rounded-lg max-h-72 object-contain mx-auto" />
+          <QuestionImage src={fd.imageUrl} alt="Questão" className="rounded-lg max-h-72 object-contain mx-auto" />
           {fd.caseText && <p className="text-xs text-muted-foreground font-sans mt-2">{fd.caseText}</p>}
         </div>
       )}
@@ -175,12 +200,23 @@ export default function QuestionRenderer({
             {lang === "pt" ? "Dados para análise:" : "Data for analysis:"}
           </p>
           <pre className="text-xs font-mono text-foreground/90 whitespace-pre-wrap overflow-x-auto">{fd.tableData}</pre>
-          {fd.imageUrl && <img src={fd.imageUrl} alt="Dados" className="mt-2 rounded-lg max-h-48 object-contain" />}
+          {fd.imageUrl && <QuestionImage src={fd.imageUrl} alt="Dados" className="mt-2 rounded-lg max-h-48 object-contain" />}
         </div>
       )}
 
       {/* ── Question text ── */}
       <p className="text-base font-sans text-foreground leading-relaxed">{qText}</p>
+
+      {/* ── Question-level image (M1/M2/M3/M4/M6/etc. com imagem no enunciado) ── */}
+      {question.imageUrl && !fd.imageUrl && (
+        <div className="rounded-lg overflow-hidden border border-border/30 bg-muted/10">
+          <QuestionImage
+            src={question.imageUrl}
+            alt="Imagem da questão"
+            className="w-full max-h-80 object-contain"
+          />
+        </div>
+      )}
 
       {/* ── Assertion-Reason: show propositions ── */}
       {qType === "assertion_reason" && (

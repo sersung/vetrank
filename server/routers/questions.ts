@@ -175,6 +175,7 @@ export const questionsRouter = router({
         isPremium: z.boolean().default(false),
         isAnulada: z.boolean().default(false),
         isDesatualizada: z.boolean().default(false),
+        imageUrl: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -303,13 +304,13 @@ export const questionsRouter = router({
       return { imported };
     }),
 
-  // Upload and optimize a question image (JPEG/PNG/WebP → WebP, max 1200px wide, quality 80)
+  // Upload and optimize a question image → 3 responsive WebP variants (sm/md/lg)
   uploadImage: protectedProcedure
     .input(
       z.object({
-        base64: z.string(), // data:[mime];base64,... or raw base64
+        base64: z.string(),           // data:[mime];base64,... or raw base64
         filename: z.string().optional(),
-        questionId: z.number().optional(), // if updating existing question
+        questionId: z.number().optional(),
         questionType: z.enum(["mc", "discursive"]).default("mc"),
       })
     )
@@ -317,30 +318,42 @@ export const questionsRouter = router({
       const allowed = ["admin", "teacher", "coordinator", "superuser"];
       if (!allowed.includes(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN" });
 
-      // Decode base64
       const base64Data = input.base64.replace(/^data:[^;]+;base64,/, "");
       const inputBuffer = Buffer.from(base64Data, "base64");
 
-      // Process with sharp: resize to max 1200px wide, convert to WebP quality 80
-      const webpBuffer = await sharp(inputBuffer)
-        .resize({ width: 1200, withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toBuffer();
+      // Generate 3 responsive variants in parallel
+      const [smBuf, mdBuf, lgBuf] = await Promise.all([
+        sharp(inputBuffer).resize({ width: 480,  withoutEnlargement: true }).webp({ quality: 75 }).toBuffer(),
+        sharp(inputBuffer).resize({ width: 960,  withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+        sharp(inputBuffer).resize({ width: 1440, withoutEnlargement: true }).webp({ quality: 85 }).toBuffer(),
+      ]);
 
-      const filename = (input.filename ?? "question").replace(/\.[^.]+$/, "");
-      const key = `questions/images/${filename}_${Date.now()}.webp`;
-      const { url } = await storagePut(key, webpBuffer, "image/webp");
+      const slug = (input.filename ?? "question").replace(/\.[^.]+$/, "").replace(/[^a-z0-9_-]/gi, "_");
+      const base = `questions/images/${slug}_${Date.now()}`;
 
-      // If questionId provided, update the question's imageUrl
+      // Upload all 3 variants in parallel
+      const [smRes, mdRes, lgRes] = await Promise.all([
+        storagePut(`${base}_sm.webp`, smBuf, "image/webp"),
+        storagePut(`${base}_md.webp`, mdBuf, "image/webp"),
+        storagePut(`${base}_lg.webp`, lgBuf, "image/webp"),
+      ]);
+
+      // Primary URL is the md variant (960px) — renderer derives sm/lg by suffix replacement
+      const imageUrl = mdRes.url;
+
       if (input.questionId) {
         if (input.questionType === "discursive") {
-          await updateDiscursiveQuestion(input.questionId, { imageUrl: url } as any);
+          await updateDiscursiveQuestion(input.questionId, { imageUrl } as any);
         } else {
-          await updateQuestion(input.questionId, { imageUrl: url } as any);
+          await updateQuestion(input.questionId, { imageUrl } as any);
         }
       }
 
-      return { url, key };
+      return {
+        url: imageUrl,          // primary (md)
+        urls: { sm: smRes.url, md: mdRes.url, lg: lgRes.url },
+        sizes: { sm: smBuf.length, md: mdBuf.length, lg: lgBuf.length },
+      };
     }),
 });
 

@@ -246,6 +246,7 @@ export default function QuestionBank() {
                           textPt: q.textPt,
                           textEn: q.textEn ?? undefined,
                           questionType: q.questionType ?? undefined,
+                          modelId: (q as any).modelId ?? undefined,
                           options,
                           correctOption: q.correctOption,
                           explanationPt: q.explanationPt ?? undefined,
@@ -253,11 +254,15 @@ export default function QuestionBank() {
                           assertion1: q.assertion1 ?? undefined,
                           assertion2: q.assertion2 ?? undefined,
                           formatData: (q as any).formatData,
+                          imageUrl: q.imageUrl ?? undefined,
                           difficulty: q.difficulty,
                           disciplineName: (q as any).disciplineName,
                           subjectTag: q.subjectTag ?? undefined,
+                          banca: (q as any).banca ?? undefined,
                           author: q.author ?? undefined,
                           year: q.year ?? undefined,
+                          isAnulada: (q as any).isAnulada ?? false,
+                          isDesatualizada: (q as any).isDesatualizada ?? false,
                         }}
                         answered={true}
                         revealAnswer={true}

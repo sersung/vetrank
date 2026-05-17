@@ -38,7 +38,12 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      res.set("Cache-Control", "no-store");
+      // Images are content-addressed (timestamp in key) — safe to cache aggressively
+      const isImage = /\.(webp|jpg|jpeg|png|gif|svg)$/i.test(key);
+      res.set(
+        "Cache-Control",
+        isImage ? "public, max-age=31536000, immutable" : "no-store"
+      );
       res.redirect(307, url);
     } catch (err) {
       console.error("[StorageProxy] failed:", err);
