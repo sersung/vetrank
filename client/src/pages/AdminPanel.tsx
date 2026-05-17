@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { QuestionFilters, type QuestionFilterState, EMPTY_FILTERS } from "@/components/QuestionFilters";
 import { QuestionImport } from "@/components/QuestionImport";
+import { ImportGuide } from "@/components/ImportGuide";
 import { AIQuestionExtractor, type AIExtractedQuestion } from "@/components/AIQuestionExtractor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -974,6 +975,9 @@ export default function AdminPanel() {
                   </div>
                 </div>
               )}
+
+              {/* Import Guide */}
+              <ImportGuide />
             </div>
           </TabsContent>
 
