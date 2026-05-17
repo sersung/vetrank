@@ -45,33 +45,50 @@ export const teacherRouter = router({
     return perms;
   }),
 
-  // ── Create question (with optional image) ─────────────────────────────────
+  // ── Create question (with all model fields) ───────────────────────────────
   createQuestion: teacherProcedure
     .input(z.object({
       disciplineId: z.number(),
       subjectId: z.number().optional(),
-      difficulty: z.enum(["easy", "medium", "hard"]),
+      difficulty: z.enum(["very_easy", "easy", "medium", "hard", "very_hard"]),
       year: z.number().optional(),
-      questionModel: z.enum(["standard", "enade", "true_false", "assertion_reason"]).default("standard"),
+      questionType: z.enum([
+        "multiple_choice", "assertion_reason", "complex_multiple_choice",
+        "matching", "true_false", "ordering", "cloze",
+        "clinical_case", "image_analysis", "interpretation", "discursive",
+      ]).default("multiple_choice"),
+      modelId: z.string().max(4).optional(),
+      grupoId: z.string().optional(),
+      posicaoBloco: z.number().optional(),
+      subjectTag: z.string().optional(),
+      author: z.string().optional(),
+      banca: z.string().optional(),
+      instituicao: z.string().optional(),
+      cargo: z.string().optional(),
+      carreira: z.string().optional(),
+      areaFormacao: z.string().optional(),
+      escolaridade: z.enum(["fundamental", "medio", "superior"]).optional(),
       textPt: z.string().min(10),
       textEn: z.string().optional(),
       imageUrl: z.string().optional(),
       options: z.array(z.object({
-        id: z.string(),
-        textPt: z.string(),
-        textEn: z.string().optional(),
-        imageUrl: z.string().optional(),
+        id: z.string(), textPt: z.string(), textEn: z.string().optional(),
       })).min(2).max(5),
       correctOption: z.string(),
       explanationPt: z.string().optional(),
       explanationEn: z.string().optional(),
+      assertion1: z.string().optional(),
+      assertion2: z.string().optional(),
+      a1Verdadeira: z.boolean().optional(),
+      a2Verdadeira: z.boolean().optional(),
+      relacaoCausal: z.boolean().optional(),
+      formatData: z.any().optional(),
       isPremium: z.boolean().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
-      // Check permission for this discipline (skip for admin/coordinator/superuser)
       if (ctx.user.role === "teacher") {
         const perm = await db
           .select()
@@ -87,7 +104,6 @@ export const teacherRouter = router({
         }
       }
 
-      // Teachers submit as pending; admins/coordinators submit as approved
       const status = ["admin", "coordinator", "superuser"].includes(ctx.user.role) ? "approved" : "pending";
 
       const [result] = await db.insert(questions).values({
@@ -96,7 +112,18 @@ export const teacherRouter = router({
         createdBy: ctx.user.id,
         difficulty: input.difficulty,
         year: input.year,
-        questionModel: input.questionModel,
+        questionType: input.questionType,
+        modelId: input.modelId,
+        grupoId: input.grupoId,
+        posicaoBloco: input.posicaoBloco,
+        subjectTag: input.subjectTag,
+        author: input.author,
+        banca: input.banca,
+        instituicao: input.instituicao,
+        cargo: input.cargo,
+        carreira: input.carreira,
+        areaFormacao: input.areaFormacao,
+        escolaridade: input.escolaridade,
         textPt: input.textPt,
         textEn: input.textEn,
         imageUrl: input.imageUrl,
@@ -104,9 +131,15 @@ export const teacherRouter = router({
         correctOption: input.correctOption,
         explanationPt: input.explanationPt,
         explanationEn: input.explanationEn,
+        assertion1: input.assertion1,
+        assertion2: input.assertion2,
+        a1Verdadeira: input.a1Verdadeira,
+        a2Verdadeira: input.a2Verdadeira,
+        relacaoCausal: input.relacaoCausal,
+        formatData: input.formatData,
         isPremium: input.isPremium,
         status,
-      });
+      } as any);
 
       await db.insert(activityLog).values({
         userId: ctx.user.id,
