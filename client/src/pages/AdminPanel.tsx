@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { QuestionFilters, type QuestionFilterState, EMPTY_FILTERS } from "@/components/QuestionFilters";
 import { QuestionImport } from "@/components/QuestionImport";
 import { AIQuestionExtractor, type AIExtractedQuestion } from "@/components/AIQuestionExtractor";
 import { Badge } from "@/components/ui/badge";
@@ -81,7 +82,23 @@ export default function AdminPanel() {
   const { data: stats } = trpc.admin.stats.useQuery(undefined, { enabled: user?.role === "admin" });
   const { data: disciplines, refetch: refetchDisciplines } = trpc.admin.disciplines.useQuery(undefined, { enabled: user?.role === "admin" });
   const { data: subjects, refetch: refetchSubjects } = trpc.admin.subjects.useQuery(undefined, { enabled: user?.role === "admin" });
-  const { data: questions, refetch: refetchQuestions } = trpc.questions.list.useQuery({ page: 1, limit: 50 }, { enabled: user?.role === "admin" });
+  const [adminQFilters, setAdminQFilters] = useState<QuestionFilterState>(EMPTY_FILTERS);
+  const [adminQApplied, setAdminQApplied] = useState<QuestionFilterState>(EMPTY_FILTERS);
+  const [adminQPage, setAdminQPage] = useState(1);
+  const { data: questions, refetch: refetchQuestions } = trpc.questions.list.useQuery(
+    {
+      ...adminQApplied,
+      difficulty: adminQApplied.difficulty as any,
+      escolaridade: adminQApplied.escolaridade as any,
+      questionType: adminQApplied.questionType as any,
+      status: adminQApplied.status as any,
+      orderBy: adminQApplied.orderBy as any,
+      myAnswers: adminQApplied.myAnswers as any,
+      page: adminQPage,
+      limit: 30,
+    },
+    { enabled: user?.role === "admin" }
+  );
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerPlanFilter, setCustomerPlanFilter] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<number | null>(null);
@@ -710,48 +727,91 @@ export default function AdminPanel() {
               <span className="text-primary">Para 5 opções (A-E) use a aba <strong>Upload</strong> com JSON.</span>
             </div>
 
+            {/* Admin question filters */}
+            <div className="bg-card border border-border/50 rounded-xl p-4 mb-4">
+              <QuestionFilters
+                filters={adminQFilters}
+                onChange={setAdminQFilters}
+                onApply={() => { setAdminQApplied(adminQFilters); setAdminQPage(1); }}
+                showAdminFields={true}
+              />
+            </div>
+
+            {questions && (
+              <p className="text-xs text-muted-foreground font-sans mb-2">
+                {questions.total} {language === "pt" ? "questão(ões) encontrada(s)" : "question(s) found"}
+              </p>
+            )}
+
             <div className="space-y-2">
-              {questions?.questions.map((q, i) => (
-                <div key={q.id} className="flex items-start gap-3 p-4 bg-card border border-border/50 rounded-xl">
-                  <span className="text-xs text-muted-foreground font-sans mt-0.5 w-6 shrink-0">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-sans line-clamp-2">{q.textPt}</p>
-                    <div className="flex gap-2 mt-1">
-                      <Badge className={`text-xs font-sans border ${
-                        q.difficulty === "easy" ? "bg-green-500/20 text-green-400 border-green-500/30" :
-                        q.difficulty === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" :
-                        "bg-red-500/20 text-red-400 border-red-500/30"
-                      }`}>{q.difficulty}</Badge>
-                      {q.year && <Badge variant="outline" className="text-xs font-sans">{q.year}</Badge>}
+              {questions?.questions.map((q, i) => {
+                const diffColor =
+                  q.difficulty === "very_easy" ? "bg-sky-500/20 text-sky-400 border-sky-500/30" :
+                  q.difficulty === "easy" ? "bg-green-500/20 text-green-400 border-green-500/30" :
+                  q.difficulty === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" :
+                  q.difficulty === "hard" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                  "bg-purple-500/20 text-purple-400 border-purple-500/30";
+                const diffPt: Record<string, string> = {
+                  very_easy: "Muito Fácil", easy: "Fácil", medium: "Médio", hard: "Difícil", very_hard: "Muito Difícil"
+                };
+                return (
+                  <div key={q.id} className="flex items-start gap-3 p-4 bg-card border border-border/50 rounded-xl">
+                    <span className="text-xs text-muted-foreground font-sans mt-0.5 w-6 shrink-0">
+                      {(adminQPage - 1) * 30 + i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-sans line-clamp-2">{q.textPt}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <Badge className={`text-xs font-sans border ${diffColor}`}>{diffPt[q.difficulty] ?? q.difficulty}</Badge>
+                        {q.banca && <Badge variant="outline" className="text-xs font-sans">{q.banca}</Badge>}
+                        {q.year && <Badge variant="outline" className="text-xs font-sans">{q.year}</Badge>}
+                        {q.isValidated
+                          ? <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">✓ Validada</Badge>
+                          : <Badge className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">Pendente</Badge>
+                        }
+                        {q.isAnulada && <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">Anulada</Badge>}
+                        {q.isDesatualizada && <Badge className="text-xs bg-gray-500/20 text-gray-400 border-gray-500/30">Desatualizada</Badge>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => handleOpenEdit(q.id)}
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 p-0"
+                        title={language === "pt" ? "Editar questão" : "Edit question"}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenEdit(q.id)}
-                      className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 p-0"
-                      title={language === "pt" ? "Editar questão" : "Edit question"}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {!questions?.questions.length && (
                 <div className="text-center py-10 text-muted-foreground font-sans">
-                  {language === "pt" ? "Nenhuma questão cadastrada. Clique em 'Inicializar Dados' para adicionar questões de exemplo." : "No questions yet. Click 'Initialize Data' to add sample questions."}
+                  {language === "pt" ? "Nenhuma questão encontrada com os filtros selecionados." : "No questions found with the selected filters."}
                 </div>
               )}
             </div>
+
+            {/* Admin pagination */}
+            {questions && questions.total > 30 && (
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <Button variant="outline" size="sm" disabled={adminQPage === 1}
+                  onClick={() => setAdminQPage(p => Math.max(1, p - 1))}>← Anterior</Button>
+                <span className="text-sm text-muted-foreground">
+                  {adminQPage} / {Math.ceil(questions.total / 30)}
+                </span>
+                <Button variant="outline" size="sm" disabled={adminQPage >= Math.ceil(questions.total / 30)}
+                  onClick={() => setAdminQPage(p => p + 1)}>Próxima →</Button>
+              </div>
+            )}
           </TabsContent>
 
           {/* Upload tab — enhanced bulk import */}

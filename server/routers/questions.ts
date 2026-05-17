@@ -12,6 +12,11 @@ import {
   getAllSubjects,
   getDisciplines,
   getDistinctAuthors,
+  getDistinctBancas,
+  getDistinctInstituicoes,
+  getDistinctCargos,
+  getDistinctCarreiras,
+  getDistinctAreasFormacao,
   getDistinctYears,
   getQuestionById,
   getQuestions,
@@ -22,6 +27,9 @@ import {
   deleteDiscursiveQuestion,
   getDiscursiveQuestions,
   getDiscursiveQuestionById,
+  getSavedFilters,
+  saveFilter,
+  deleteSavedFilter,
   getDb,
 } from "../db";
 import { questions, users, exams } from "../../drizzle/schema";
@@ -66,19 +74,42 @@ export const questionsRouter = router({
   list: publicProcedure
     .input(
       z.object({
+        // Basic
         disciplineId: z.number().optional(),
         subjectId: z.number().optional(),
-        difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-        year: z.number().optional(),
-        questionType: questionTypeEnum.optional(),
         search: z.string().optional(),
+        // Classification
+        questionType: questionTypeEnum.optional(),
+        difficulty: z.enum(["very_easy", "easy", "medium", "hard", "very_hard"]).optional(),
+        year: z.number().optional(),
+        yearFrom: z.number().optional(),
+        yearTo: z.number().optional(),
+        author: z.string().optional(),
+        banca: z.string().optional(),
+        instituicao: z.string().optional(),
+        cargo: z.string().optional(),
+        carreira: z.string().optional(),
+        areaFormacao: z.string().optional(),
+        escolaridade: z.enum(["fundamental", "medio", "superior"]).optional(),
+        // Status (admin)
+        status: z.enum(["pending", "approved", "rejected"]).optional(),
+        isValidated: z.boolean().optional(),
+        // Flags
+        includeAnuladas: z.boolean().optional(),
+        includeDesatualizadas: z.boolean().optional(),
+        hasExplanation: z.boolean().optional(),
+        // User activity
+        myAnswers: z.enum(["answered", "unanswered", "correct", "incorrect"]).optional(),
+        // Sorting & pagination
+        orderBy: z.enum(["newest", "oldest", "year_desc", "year_asc"]).optional(),
         page: z.number().default(1),
         limit: z.number().default(20),
       })
     )
     .query(async ({ input, ctx }) => {
       const isPremium = ctx.user ? undefined : false;
-      return getQuestions({ ...input, isPremium });
+      const userId = ctx.user?.id;
+      return getQuestions({ ...input, isPremium, userId });
     }),
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
@@ -95,6 +126,20 @@ export const questionsRouter = router({
   allSubjects: publicProcedure.query(() => getAllSubjects()),
   distinctAuthors: publicProcedure.query(() => getDistinctAuthors()),
   distinctYears: publicProcedure.query(() => getDistinctYears()),
+  distinctBancas: publicProcedure.query(() => getDistinctBancas()),
+  distinctInstituicoes: publicProcedure.query(() => getDistinctInstituicoes()),
+  distinctCargos: publicProcedure.query(() => getDistinctCargos()),
+  distinctCarreiras: publicProcedure.query(() => getDistinctCarreiras()),
+  distinctAreasFormacao: publicProcedure.query(() => getDistinctAreasFormacao()),
+
+  // Saved filters (requires auth)
+  savedFilters: protectedProcedure.query(({ ctx }) => getSavedFilters(ctx.user!.id)),
+  saveFilter: protectedProcedure
+    .input(z.object({ name: z.string().min(1).max(128), filters: z.record(z.string(), z.any()) }))
+    .mutation(({ input, ctx }) => saveFilter(ctx.user!.id, input.name, input.filters)),
+  deleteSavedFilter: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input, ctx }) => deleteSavedFilter(input.id, ctx.user!.id)),
 
   // Admin procedures
   create: protectedProcedure

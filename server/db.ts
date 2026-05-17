@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, like, lte, not, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   Badge,
@@ -7,8 +7,10 @@ import {
   Exam,
   InsertDiscursiveQuestion,
   InsertQuestion,
+  InsertSavedFilter,
   InsertUser,
   Question,
+  SavedFilter,
   Subject,
   User,
   badges,
@@ -17,7 +19,9 @@ import {
   examAnswers,
   exams,
   monthlyXp,
+  practiceSessions,
   questions,
+  savedFilters,
   subjects,
   userBadges,
   users,
@@ -293,38 +297,195 @@ export async function getAllSubjects(): Promise<Subject[]> {
 }
 
 // ─── Questions ────────────────────────────────────────────────────────────────
-export async function getQuestions(filters: {
+export type QuestionFilters = {
+  // Basic
   disciplineId?: number;
   subjectId?: number;
-  difficulty?: string;
-  year?: number;
   search?: string;
   isPremium?: boolean;
+  // Classification
+  questionType?: string;
+  difficulty?: string;
+  year?: number;
+  yearFrom?: number;
+  yearTo?: number;
+  author?: string;
+  banca?: string;
+  instituicao?: string;
+  cargo?: string;
+  carreira?: string;
+  areaFormacao?: string;
+  escolaridade?: string;
+  // Status
+  status?: string;          // pending | approved | rejected
+  isValidated?: boolean;
+  isAnulada?: boolean;
+  isDesatualizada?: boolean;
+  includeAnuladas?: boolean;
+  includeDesatualizadas?: boolean;
+  // Content filters
+  hasExplanation?: boolean; // has AI explanation
+  // User activity filters (requires userId)
+  myAnswers?: "answered" | "unanswered" | "correct" | "incorrect";
+  userId?: number;
+  // Sorting
+  orderBy?: "newest" | "oldest" | "year_desc" | "year_asc";
+  // Pagination
   page?: number;
   limit?: number;
-}): Promise<{ questions: Question[]; total: number }> {
+};
+
+export async function getQuestions(filters: QuestionFilters): Promise<{ questions: Question[]; total: number }> {
   const db = await getDb();
   if (!db) return { questions: [], total: 0 };
 
   const conditions = [eq(questions.active, true)];
+
+  // By default exclude anuladas/desatualizadas unless explicitly included
+  if (!filters.includeAnuladas) conditions.push(eq(questions.isAnulada, false));
+  if (!filters.includeDesatualizadas) conditions.push(eq(questions.isDesatualizada, false));
+
   if (filters.disciplineId) conditions.push(eq(questions.disciplineId, filters.disciplineId));
   if (filters.subjectId) conditions.push(eq(questions.subjectId, filters.subjectId));
-  if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty as "easy" | "medium" | "hard"));
+  if (filters.difficulty) conditions.push(eq(questions.difficulty, filters.difficulty as any));
+  if (filters.questionType) conditions.push(eq(questions.questionType, filters.questionType as any));
   if (filters.year) conditions.push(eq(questions.year, filters.year));
+  if (filters.yearFrom) conditions.push(gte(questions.year, filters.yearFrom));
+  if (filters.yearTo) conditions.push(lte(questions.year, filters.yearTo));
   if (filters.isPremium !== undefined) conditions.push(eq(questions.isPremium, filters.isPremium));
-  if (filters.search) conditions.push(like(questions.textPt, `%${filters.search}%`));
+  if (filters.search) {
+    conditions.push(or(
+      like(questions.textPt, `%${filters.search}%`),
+      like(questions.banca, `%${filters.search}%`),
+      like(questions.instituicao, `%${filters.search}%`),
+    )!);
+  }
+  if (filters.author) conditions.push(like(questions.author, `%${filters.author}%`));
+  if (filters.banca) conditions.push(eq(questions.banca, filters.banca));
+  if (filters.instituicao) conditions.push(like(questions.instituicao, `%${filters.instituicao}%`));
+  if (filters.cargo) conditions.push(like(questions.cargo, `%${filters.cargo}%`));
+  if (filters.carreira) conditions.push(eq(questions.carreira, filters.carreira));
+  if (filters.areaFormacao) conditions.push(eq(questions.areaFormacao, filters.areaFormacao));
+  if (filters.escolaridade) conditions.push(eq(questions.escolaridade, filters.escolaridade as any));
+  if (filters.status) conditions.push(eq(questions.status, filters.status as any));
+  if (filters.isValidated !== undefined) conditions.push(eq(questions.isValidated, filters.isValidated));
+  if (filters.hasExplanation) conditions.push(isNotNull(questions.explanationPt));
 
-  const where = and(...conditions);
   const page = filters.page ?? 1;
   const limit = filters.limit ?? 20;
   const offset = (page - 1) * limit;
 
+  const orderCol = (() => {
+    switch (filters.orderBy) {
+      case "oldest":    return asc(questions.createdAt);
+      case "year_desc": return desc(questions.year);
+      case "year_asc":  return asc(questions.year);
+      default:          return desc(questions.createdAt);
+    }
+  })();
+
+  // "Minhas questões" filter: join with practice_sessions
+  if (filters.myAnswers && filters.userId) {
+    const uid = filters.userId;
+    const answeredSubquery = db
+      .selectDistinct({ questionId: practiceSessions.questionId })
+      .from(practiceSessions)
+      .where(eq(practiceSessions.userId, uid));
+
+    if (filters.myAnswers === "unanswered") {
+      const answeredIds = (await answeredSubquery).map(r => r.questionId);
+      if (answeredIds.length > 0) conditions.push(not(inArray(questions.id, answeredIds)));
+    } else {
+      const sessionConditions = [eq(practiceSessions.userId, uid)];
+      if (filters.myAnswers === "correct") sessionConditions.push(eq(practiceSessions.isCorrect, true));
+      if (filters.myAnswers === "incorrect") sessionConditions.push(eq(practiceSessions.isCorrect, false));
+
+      const matchedIds = (
+        await db.selectDistinct({ questionId: practiceSessions.questionId })
+          .from(practiceSessions)
+          .where(and(...sessionConditions))
+      ).map(r => r.questionId);
+
+      if (matchedIds.length === 0) return { questions: [], total: 0 };
+      conditions.push(inArray(questions.id, matchedIds));
+    }
+  }
+
+  const where = and(...conditions);
   const [rows, countRows] = await Promise.all([
-    db.select().from(questions).where(where).orderBy(desc(questions.createdAt)).limit(limit).offset(offset),
+    db.select().from(questions).where(where).orderBy(orderCol).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(questions).where(where),
   ]);
 
   return { questions: rows, total: Number(countRows[0]?.count ?? 0) };
+}
+
+// ─── Distinct filter values ───────────────────────────────────────────────────
+export async function getDistinctBancas(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.selectDistinct({ banca: questions.banca }).from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.banca)))
+    .orderBy(asc(questions.banca));
+  return rows.map(r => r.banca!).filter(Boolean);
+}
+
+export async function getDistinctInstituicoes(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.selectDistinct({ instituicao: questions.instituicao }).from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.instituicao)))
+    .orderBy(asc(questions.instituicao));
+  return rows.map(r => r.instituicao!).filter(Boolean);
+}
+
+export async function getDistinctCargos(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.selectDistinct({ cargo: questions.cargo }).from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.cargo)))
+    .orderBy(asc(questions.cargo));
+  return rows.map(r => r.cargo!).filter(Boolean);
+}
+
+export async function getDistinctCarreiras(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.selectDistinct({ carreira: questions.carreira }).from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.carreira)))
+    .orderBy(asc(questions.carreira));
+  return rows.map(r => r.carreira!).filter(Boolean);
+}
+
+export async function getDistinctAreasFormacao(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.selectDistinct({ areaFormacao: questions.areaFormacao }).from(questions)
+    .where(and(eq(questions.active, true), isNotNull(questions.areaFormacao)))
+    .orderBy(asc(questions.areaFormacao));
+  return rows.map(r => r.areaFormacao!).filter(Boolean);
+}
+
+// ─── Saved Filters ────────────────────────────────────────────────────────────
+export async function getSavedFilters(userId: number): Promise<SavedFilter[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(savedFilters)
+    .where(eq(savedFilters.userId, userId))
+    .orderBy(desc(savedFilters.createdAt));
+}
+
+export async function saveFilter(userId: number, name: string, filters: unknown): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(savedFilters).values({ userId, name, filters });
+}
+
+export async function deleteSavedFilter(id: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(savedFilters)
+    .where(and(eq(savedFilters.id, id), eq(savedFilters.userId, userId)));
 }
 
 export async function getQuestionById(id: number): Promise<Question | undefined> {

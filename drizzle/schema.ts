@@ -150,42 +150,42 @@ export const questions = mysqlTable("questions", {
   id: int("id").autoincrement().primaryKey(),
   disciplineId: int("disciplineId").notNull(),
   subjectId: int("subjectId"),
-  createdBy: int("createdBy"), // teacher or admin user id
-  difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).notNull(),
+  createdBy: int("createdBy"),
+  difficulty: mysqlEnum("difficulty", ["very_easy", "easy", "medium", "hard", "very_hard"]).notNull(),
   year: int("year"),
   // Question type (format)
   questionType: mysqlEnum("questionType", [
-    "multiple_choice",      // Múltipla Escolha Simples: 5 alternativas A-E
-    "assertion_reason",     // Asserção-Razão ENADE: proposições I e II com PORQUE, 5 opções fixas
-    "complex_multiple_choice", // Múltipla Escolha Complexa: itens I/II/III com combinações
-    "matching",             // Associação: Coluna A ↔ Coluna B
-    "true_false",           // Verdadeiro ou Falso Sequencial: lista de afirmações V/F
-    "ordering",             // Ordenação/Sequenciamento: organizar etapas
-    "cloze",                // Preenchimento de Lacunas (Cloze): texto com [BLANK]
-    "clinical_case",        // Caso Clínico: anamnese/exames + alternativas
-    "image_analysis",       // Análise de Imagem/Gráfico: imagem + alternativas
-    "interpretation",       // Interpretação de Dados: tabela/resultado + alternativas
-    "discursive",           // Discursiva: resposta aberta
+    "multiple_choice",
+    "assertion_reason",
+    "complex_multiple_choice",
+    "matching",
+    "true_false",
+    "ordering",
+    "cloze",
+    "clinical_case",
+    "image_analysis",
+    "interpretation",
+    "discursive",
   ]).default("multiple_choice").notNull(),
-  // Format-specific structured data (JSON)
-  // Used for: complex_multiple_choice items, matching columns, true_false statements, ordering steps, cloze blanks
   formatData: json("formatData"),
-  // Question model/template (legacy, kept for compatibility)
   questionModel: mysqlEnum("questionModel", ["standard", "enade", "true_false", "assertion_reason"]).default("standard").notNull(),
-  // Subject tag and author
+  // Classification / provenance
   subjectTag: varchar("subjectTag", { length: 128 }),
   author: varchar("author", { length: 256 }),
+  banca: varchar("banca", { length: 128 }),           // Examination board (VUNESP, FGV, CESPE…)
+  instituicao: varchar("instituicao", { length: 256 }), // Institution (USP, UFMG…)
+  cargo: varchar("cargo", { length: 256 }),             // Job/position being selected for
+  carreira: varchar("carreira", { length: 128 }),        // Career track
+  areaFormacao: varchar("areaFormacao", { length: 128 }), // Field of study / degree
+  escolaridade: mysqlEnum("escolaridade", ["fundamental", "medio", "superior"]),
   // Content (bilingual)
   textPt: text("textPt").notNull(),
   textEn: text("textEn"),
-  // Image URL for question body
   imageUrl: varchar("imageUrl", { length: 512 }),
-  // Options stored as JSON array [{id, textPt, textEn, imageUrl?}]
   options: json("options").notNull(),
   correctOption: varchar("correctOption", { length: 4 }).notNull(),
   explanationPt: text("explanationPt"),
   explanationEn: text("explanationEn"),
-  // Assertion-reason specific fields
   assertion1: text("assertion1"),
   assertion2: text("assertion2"),
   // Validation
@@ -193,6 +193,9 @@ export const questions = mysqlTable("questions", {
   isValidated: boolean("isValidated").default(false).notNull(),
   validatedBy: int("validatedBy"),
   validatedAt: timestamp("validatedAt"),
+  // Status flags
+  isAnulada: boolean("isAnulada").default(false).notNull(),
+  isDesatualizada: boolean("isDesatualizada").default(false).notNull(),
   // Meta
   active: boolean("active").default(true).notNull(),
   isPremium: boolean("isPremium").default(false).notNull(),
@@ -509,3 +512,15 @@ export const payments = mysqlTable("payments", {
 });
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = typeof payments.$inferInsert;
+
+// ─── Saved Filters ────────────────────────────────────────────────────────────
+export const savedFilters = mysqlTable("saved_filters", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
+  filters: json("filters").notNull(), // serialized QuestionFilters object
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SavedFilter = typeof savedFilters.$inferSelect;
+export type InsertSavedFilter = typeof savedFilters.$inferInsert;
